@@ -1,10 +1,7 @@
 #!/usr/bin/python
-import os
-import sys
 import argparse
-import mysql.connector
-scriptName='ExonsToProt.py'
-version=1.2
+gitRepository='SEDMATCHGITREPO'
+version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
 contact='julien.fouret12@uniagro.fr'
@@ -12,18 +9,21 @@ contact='julien.fouret12@uniagro.fr'
 parser = argparse.ArgumentParser(description='Sort gene/transcript from an alignement and reassemble all exons. Get the corresponding name(NGNC) of the protein with the accession numer (from ucsc or ncbi) and add kegg, go and uniprot annotations',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('-al', metavar='Alignment file', required=True, help="alignment file in fasta format")
 parser.add_argument('-out', metavar='Output directory', required=True, help="folder in which to write all computed alignments")
-parser.add_argument('-annotate_only',action='store_true', help="only annotation !")
+parser.add_argument('-annotate_only',action='store_true', help="only annotation")
 parser.add_argument('-spec', metavar='Species file' , required=True, help="file with all species/assembly name (one per line)")
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
 parser.add_argument('-db',metavar='Database', required=False, help="name of the database 'ncbi' or 'ucsc'",default='ucsc',choices=['ucsc','ncbi'])
 args=parser.parse_args()
 
-sys.path.append('/export/home/jfouret/lib/')
-from myfunctions import *
+import os
+import sys
+import mysql.connector
+from jupype import *
 
 rootedDir=rootDir(args.out)
 rootedDir.logs.writeArgs()
+
 ##define function
 def writedb(query,file_name,header):
 	global cnx
@@ -166,6 +166,7 @@ with open(rootedDir.reports+'/duplicate.txt','w') as logFile:
 	for key in allSymbol:
 		if allSymbol[key]>0:
 			logFile.write(key+"\n")
+
+
+saveRoot(rootedDir)
 sys.exit(0)
-
-
