@@ -14,6 +14,9 @@ parser.add_argument('-reg', metavar='chr:start-end', required=True, help="region
 parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
+parser.add_argument('-strict', action='store_true', help="do not consid")
+parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19/hg19.fa')
+parser.add_argument('-hg19Dict', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19/hg19.dict')
 args=parser.parse_args()
 
 # Import libraries
@@ -38,6 +41,10 @@ gatk_cmd=java.create(options={'-jar':args.gatk})
 gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1',min='3.6')
 gatk.versionCtrl()
 gatk.log()
+megacc=Command('megacc')
+picard_cmd=java.create(options={'-jar':args.picard})
+picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
+picard.log()
 
 #get absolute path from inputs
 bam=os.path.abspath(args.bam)
@@ -69,7 +76,7 @@ callPos=[rootedDir.results+'/tmp.vcf.gz']
 
 submitOneShell(bcftools.create(options=callOpt,positionals=callPos,subprogram='call'))
 submitOneShell("grep -v -e \"\tINDEL\t\" "+rootedDir.results+'/tmp_calling.vcf > '+rootedDir.results+'/calling.vcf')
-submitOneShell("rm "+rootedDir.results+'/tmp_calling.vcf')
+submitOneShell("rm "+rootedDir.results+'/tmp_calling.vcf '+rootedDir.results+'/calling.vcf.idx')
 
 ## step 3.0 - check for the presence of indexation files
 
@@ -81,9 +88,7 @@ faiRef=ref+'.fai'
 dictRef=prefixRef+'.dict'
 
 if not os.path.isfile(dictRef):
-	picard_cmd=java.create(options={'-jar':args.picard})
-	picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
-	picard.log()
+
 	dictOpt={
 		'REFERENCE':ref,
 		'OUTPUT':dictRef
@@ -100,7 +105,7 @@ NbCalls=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/calling.vcf')['
 ## step 3.1 - create consensus
 if NbCalls=='0':
 	import re
-	with open(rootedDir.results+'/consensus.fa','w') as csFile:
+	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
 		csFile.write('>1 '+args.reg.split('-')[0]+"\n")
 		pos=args.reg.split(':')[1].split('-')
 		pos=[int(pos[0]),int(pos[1])]
@@ -115,8 +120,48 @@ else:
 		'-V':rootedDir.results+'/calling.vcf',
 		'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
 	}
-
 	submitOneShell(gatk.create(options=gatkOpt))
+	## step 3.2.0 Get the hg19 sequence
+	getRefOpt={
+		'R':args.hg19,
+		'O':rootedDir.results+'/hg19.fa',
+		'INTERVAL_LIST':rootedDir.results+'/regions.txt',
+	}
+	
+	submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
+	chromosome,positions=args.reg.split(':')
+	start,end=positions.split('-')
+	#start=str(int(start)+1)
+	with open(rootedDir.results+'/regions.txt','a') as regFile:
+		regFile.write("\t".join([chromosome,start,end,'+','.'])+"\n")
+	submitOneShell(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
+	submitOneShell('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/consensus.fa > '+rootedDir.results+'/data.fa')
+
+	## step 3.2.1 Build an alignment consensus-hg19 in aln.fasta
+	megaccOpt={
+		'-a':gitRepository+'/template/clustal_align_nucleotide.mao',
+		'-d':rootedDir.results+'/data.fa',
+		'-o':rootedDir.results+'/aln',
+		'-f':'Fasta'
+	}
+	submitOneShell(megacc.create(options=megaccOpt))
+
+	## step 3.2.2 parse the alignment to prepare to hg19 mapped exon (no gap in hg19)
+	from Bio import SeqIO
+	seqList=list()
+	fasta_sequences=SeqIO.parse(open(rootedDir.results+'/aln.fasta'),'fasta')
+	for fasta in fasta_sequences:
+		name, sequence = fasta.description, str(fasta.seq)
+		seqList.append(sequence)
+	seqhg19=list(seqList[0])
+	seqConsensus=list(seqList[1])
+	mappedSeq=''
+	for index in range(len(seqhg19)):
+		if seqhg19[index]!='-':
+			mappedSeq+=seqConsensus[index]
+	with open(rootedDir.results+'/hg19mapped.fa','w') as mappedFile:
+		mappedFile.write('>hg19mapped '+args.reg+"\n")
+		mappedFile.write(mappedSeq+"\n")
 
 	## step 4.0 - Create coverage.tab file for graph outputs
 

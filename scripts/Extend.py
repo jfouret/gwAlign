@@ -87,7 +87,7 @@ outAln=open(rootedDir.reports+'/algn_extended.fa','w')
 for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
 	m=reID.match(name)
-	outAln.write(name+"\n")
+	outAln.write('>'+name+"\n")
 	outAln.write(sequence+"\n")
 	if m:
 		strand=m.group(9)
@@ -99,7 +99,7 @@ for fasta in fasta_sequences:
 			time.sleep(10)
 		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+m.group(8)+m.group(9)+" BAM:BAM-BAM\n"
 		outAln.write(header)
-		with open(consensusOutPut+'/results/consensus.fa','r') as consensusFile:
+		with open(consensusOutPut+'/results/hg19mapped.fa','r') as consensusFile:
 			seq=''.join(consensusFile.readlines()[1:]).replace("\n",'')
 			if len(seq)!=seqLen:
 				print('ERROR SEQ SIZE for '+name)
