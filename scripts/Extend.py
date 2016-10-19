@@ -107,6 +107,7 @@ for fasta in fasta_sequences:
 	m=reID.match(name)
 	time.sleep(0.05)#debug
 	print(name)#debug
+	print(m.group(3))#debug
 	if m and (m.group(3) in refDict.keys()):
 		if m.group(9)==None:
 			region=''
