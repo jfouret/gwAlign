@@ -56,15 +56,16 @@ specOrder=list() # priority of species (closely related ?)
 with open(args.reference,'r') as refFile:
 	for line in refFile.readlines():
 		line=line.rstrip()
-		spec,fasta,bam=line.split(';')
-		region=regions[index]
-		if region!='':
-			refDict[spec]={
-				'fasta':fasta,
-				'bam':bam,
-				'reg':"'"+region+"'"
-			}
-		specOrder.append(spec)
+		if line!='':
+			spec,fasta,bam=line.split(';')
+			region=regions[index]
+			if region!='':
+				refDict[spec]={
+					'fasta':fasta,
+					'bam':bam,
+					'reg':"'"+region+"'"
+				}
+			specOrder.append(spec)
 os.chdir(rootedDir.results)
 
 ## step 1 - iteration for all species

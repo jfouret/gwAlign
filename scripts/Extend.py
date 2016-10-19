@@ -106,8 +106,8 @@ for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
 	m=reID.match(name)
 	time.sleep(0.05)#debug
-	print(name)#debug
-	print(m.group(3))#debug
+	#print(name)#debug
+	#print(m.group(3))#debug
 	if m and (m.group(3) in refDict.keys()):
 		print('GO==>'+name)#debug
 		if m.group(9)==None:
@@ -117,18 +117,18 @@ for fasta in fasta_sequences:
 		refDict[m.group(3)]=region
 		NbSpec+=1
 	if NbSpec==NbSpecLim:
-		print('JUMP')#debug
-		print('refDict')#debug
-		print(refDict)#debug
-		print('specOrder')#debug
-		print(specOrder)#debug
+		#print('JUMP')#debug
+		#print('refDict')#debug
+		#print(refDict)#debug
+		#print('specOrder')#debug
+		#print(specOrder)#debug
 		NbSpec=0
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
 		for spec in specOrder:
 			regionOrdList.append(refDict[spec])
-		print('regionOrdList')#debug
-		print(regionOrdList)#debug
+		#print('regionOrdList')#debug
+		#print(regionOrdList)#debug
 		regions=','.join(regionOrdList)# regions != region
 		bam2consensusOpt={
 			'-outDir':consensusOutPut,
