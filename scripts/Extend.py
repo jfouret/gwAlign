@@ -65,7 +65,7 @@ index=0
 # extract info from refFile
 refDict=dict() # stock the regions + strands for each specie 
 specOrder=list() # stock the order of the species
-with open(args.reference,'r') as refFile:
+with open(args.refs,'r') as refFile:
 	for line in refFile.readlines():
 		line=line.rstrip()
 		spec,fasta,bam=line.split(';')
