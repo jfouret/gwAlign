@@ -101,12 +101,13 @@ fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 cmdList=list()
 NbSpec=0 # 0 species matched yet
 NbSpecLim=len(refDict.keys()) # number of species to match before to start searching consensus
+
 for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
 	m=reID.match(name)
-	#time.sleep(0.05)#debug
-	#print(name)#debug
-	if m:
+	time.sleep(0.05)#debug
+	print(name)#debug
+	if m and (m.group(3) in refDict.keys()):
 		if m.group(9)==None:
 			region=''
 		else:
@@ -114,8 +115,8 @@ for fasta in fasta_sequences:
 		refDict[m.group(3)]=m.group(9)
 		NbSpec=+1
 	if NbSpec==NbSpecLim:
-		#time.sleep(0.05)#debug
-		#print(name)#debug
+		time.sleep(0.05)#debug
+		print('GO==>'+name)#debug
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
 		for spec in specOrder:
@@ -158,7 +159,7 @@ for fasta in fasta_sequences:
 		with open(consensusOutPut+'/results/hg19mapped.fa','r') as consensusFile:
 			seq=''.join(consensusFile.readlines()[1:]).replace("\n",'')
 			if len(seq)!=seqLen:
-				print('ERROR SEQ SIZE for '+name,file=sys.stderr)
+				sys.stderr.write('ERROR SEQ SIZE for '+name)
 				sys.exit(1)
 		outAln.write(seq+"\n")
 outAln.close()
