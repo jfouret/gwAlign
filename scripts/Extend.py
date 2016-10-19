@@ -68,31 +68,32 @@ specOrder=list() # stock the order of the species
 with open(args.refs,'r') as refFile:
 	for line in refFile.readlines():
 		line=line.rstrip()
-		spec,fasta,bam=line.split(';')
-		refDict[spec]=''
+		if line!=''
+			spec,fasta,bam=line.split(';')
+			refDict[spec]=''
 
-		## step 3.0 - check for the presence of indexation files
+			## check for the presence of indexation files
 
-		prefixRef=fasta.replace('.fa','')
-		prefixRef=prefixRef.replace('.fna','')
-		prefixRef=prefixRef.replace('.fasta','')
+			prefixRef=fasta.replace('.fa','')
+			prefixRef=prefixRef.replace('.fna','')
+			prefixRef=prefixRef.replace('.fasta','')
 
-		faiRef=fasta+'.fai'
-		dictRef=prefixRef+'.dict'
+			faiRef=fasta+'.fai'
+			dictRef=prefixRef+'.dict'
 
-		if not os.path.isfile(dictRef):
-			dictOpt={
-				'REFERENCE':fasta,
-				'OUTPUT':dictRef
-			}
-			submitOneShell(picard.create(options=dictOpt,sep='=',subprogram='CreateSequenceDictionary'))
+			if not os.path.isfile(dictRef):
+				dictOpt={
+					'REFERENCE':fasta,
+					'OUTPUT':dictRef
+				}
+				submitOneShell(picard.create(options=dictOpt,sep='=',subprogram='CreateSequenceDictionary'))
 
-		if not os.path.isfile(faiRef):
-			faiPos=[fasta]
-			submitOneShell(samtools.create(positionals=faiPos,subprogram='faidx'))
+			if not os.path.isfile(faiRef):
+				faiPos=[fasta]
+				submitOneShell(samtools.create(positionals=faiPos,subprogram='faidx'))
 
-		#TODO check if spec names are corect(matching those in the multi aln file)
-		#TODO check the presence of hg19
+			#TODO check if spec names are corect(matching those in the multi aln file)
+			#TODO check the presence of hg19
 
 fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 # step 1 - iterate over the aln File to compute consensus seq
