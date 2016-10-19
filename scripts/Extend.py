@@ -82,13 +82,13 @@ with open(args.refs,'r') as refFile:
 
 		if not os.path.isfile(dictRef):
 			dictOpt={
-				'REFERENCE':ref,
+				'REFERENCE':fasta,
 				'OUTPUT':dictRef
 			}
 			submitOneShell(picard.create(options=dictOpt,sep='=',subprogram='CreateSequenceDictionary'))
 
 		if not os.path.isfile(faiRef):
-			faiPos=[ref]
+			faiPos=[fasta]
 			submitOneShell(samtools.create(positionals=faiPos,subprogram='faidx'))
 
 		#TODO check if spec names are corect(matching those in the multi aln file)
