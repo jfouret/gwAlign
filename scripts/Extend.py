@@ -118,13 +118,17 @@ for fasta in fasta_sequences:
 		NbSpec+=1
 	if NbSpec==NbSpecLim:
 		print('JUMP')#debug
+		print('refDict')#debug
 		print(refDict)#debug
+		print('specOrder')#debug
+		print(specOrder)#debug
 		NbSpec=0
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
 		for spec in specOrder:
 			regionOrdList.append(refDict[spec])
-		print(regionOrdList)
+		print('regionOrdList')#debug
+		print(regionOrdList)#debug
 		regions=','.join(regionOrdList)# regions != region
 		bam2consensusOpt={
 			'-outDir':consensusOutPut,
