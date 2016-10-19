@@ -122,8 +122,8 @@ for fasta in fasta_sequences:
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
 		for spec in specOrder:
-			regionOrdList.append(refDict(spec))
-		regions=';'.join(regionOrdList)# regions != region
+			regionOrdList.append(refDict[spec])
+		regions=','.join(regionOrdList)# regions != region
 		bam2consensusOpt={
 			'-outDir':consensusOutPut,
 			'-reference':refsFileName,

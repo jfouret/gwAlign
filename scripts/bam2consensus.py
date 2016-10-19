@@ -49,7 +49,7 @@ picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s
 picard.log()
 
 #get absolute path from inputs
-regions=args.reg.split(';')
+regions=args.reg.split(',')
 index=0
 refDict=dict()
 specOrder=list() # priority of species (closely related ?)
@@ -118,11 +118,12 @@ for spec in NbCallsDict.keys():
 NbCalls=NbCallDict[chosenSpec]
 
 ## step 3.1 - create consensus
+reg=refDict[chosenSpec]['reg']
 if NbCalls==0:
 	import re
 	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
-		csFile.write('>1 '+args.reg.split('-')[0]+"\n")
-		pos=args.reg.split(':')[1].split('-')
+		csFile.write('>1 '+reg.split('-')[0]+"\n")
+		pos=reg[:-1].split(':')[1].split('-')
 		pos=[int(pos[0]),int(pos[1])]
 		seqLen=max(pos)-min(pos)+1
 		csFile.write(re.sub("(.{60})", "\\1\n", '-'*seqLen, 0, re.DOTALL)+"\n")
@@ -131,7 +132,7 @@ else:
 		'-T':'FastaAlternateReferenceMaker',
 		'-R':ref,
 		'-o':rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa',
-		'-L':args.reg,
+		'-L':reg[:-1],
 		'-V':rootedDir.results+'/'+chosenSpec+'/genotype.vcf',
 		'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
 	}
@@ -187,7 +188,7 @@ else:
 		if seqhg19[index]!='-':
 			mappedSeq+=seqConsensus[index]
 	with open(rootedDir.results+'/hg19mapped.fa','w') as mappedFile:
-		mappedFile.write('>hg19mapped '+args.reg+"\n")
+		mappedFile.write('>hg19mapped '+reg+"\n")
 		mappedFile.write(mappedSeq+"\n")
 
 	## step 4.0 - Create coverage.tab file for graph outputs TODO ==> put in a seperate programe just with outDir
@@ -216,7 +217,7 @@ else:
 				)
 				data.append(trace)
 				layout=dict(
-					title=args.reg,
+					title=reg,
 					xaxis=dict(
 						title='Genomic positions (bases)'
 						),
@@ -226,7 +227,7 @@ else:
 					)
 				fig=go.Figure(data=data,layout=layout)
 		py.plot(fig,filename=rootedDir.reports+"/coverage.html",show_link=False,auto_open=False)
-		#plot=data.plot.area(title=args.reg,legend=True)
+		#plot=data.plot.area(title=reg,legend=True)
 		#fig=plot.get_figure()
 		#fig.savefig(rootedDir.reports+"/coverage.png")
 	#Nbcalls=int(submitOneShell('rm '+rootedDir.results+'/tmp.bcf ; grep -P "^#" -v -c calling.vcf')['out'])
