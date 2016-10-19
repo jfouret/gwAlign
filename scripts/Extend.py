@@ -55,6 +55,7 @@ reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-
 #exon num = 4
 #exon tot = 5
 #reg and strand = 9
+reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1})?$')
 
 # configure batch
 Nlim=80
@@ -68,7 +69,7 @@ specOrder=list() # stock the order of the species
 with open(args.refs,'r') as refFile:
 	for line in refFile.readlines():
 		line=line.rstrip()
-		if line!=''
+		if line!='':
 			spec,fasta,bam=line.split(';')
 			refDict[spec]=''
 
@@ -142,23 +143,22 @@ fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 outAln=open(rootedDir.reports+'/algn_extended.fa','w')
 for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
-	m=reID.match(name)
+	m=reIDhg19.match(name)
 	outAln.write('>'+name+"\n")
 	outAln.write(sequence+"\n")
 	if m:
-		strand=m.group(9)
-		pos=m.group(8).split(':')[1].split('-')
+		pos=m.group(8).split(':')[1][:-1].split('-')
 		pos=[int(pos[0]),int(pos[1])]
 		seqLen=max(pos)-min(pos)+1
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(3)
 		while not os.path.exists(consensusOutPut+'/fileRooting.pkl'): # infinite loop if bug . . . (sol ? write an error file in error ? through def main: and main())
 			time.sleep(10)
-		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(4)+'_'+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+m.group(8)+' '+m.group(9)+m.group(9)+" BAM:BAM-BAM\n"
+		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" BAM:BAM-BAM\n"
 		outAln.write(header)
 		with open(consensusOutPut+'/results/hg19mapped.fa','r') as consensusFile:
 			seq=''.join(consensusFile.readlines()[1:]).replace("\n",'')
 			if len(seq)!=seqLen:
-				print('ERROR SEQ SIZE for '+name)
+				print('ERROR SEQ SIZE for '+name,file=sys.stderr)
 				sys.exit(1)
 		outAln.write(seq+"\n")
 outAln.close()
@@ -167,3 +167,6 @@ outAln.close()
 saveRoot(rootedDir)
 
 sys.exit(0)
+
+
+reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1})?$')
