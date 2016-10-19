@@ -72,7 +72,7 @@ with open(args.refs,'r') as refFile:
 		if line!='':
 			spec,fasta,bam=line.split(';')
 			refDict[spec]=''
-
+			specOrder.append(spec)
 			## check for the presence of indexation files
 
 			prefixRef=fasta.replace('.fa','')
