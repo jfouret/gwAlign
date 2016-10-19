@@ -62,7 +62,7 @@ with open(args.reference,'r') as refFile:
 			refDict[spec]={
 				'fasta':fasta,
 				'bam':bam,
-				'reg':region,
+				'reg':"'"+region+"'"
 			}
 		specOrder.append(spec)
 os.chdir(rootedDir.results)
