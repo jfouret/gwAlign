@@ -109,15 +109,16 @@ for fasta in fasta_sequences:
 	print(name)#debug
 	print(m.group(3))#debug
 	if m and (m.group(3) in refDict.keys()):
+		print('GO==>'+name)#debug
 		if m.group(9)==None:
 			region=''
 		else:
 			region=m.group(9)
-		refDict[m.group(3)]=m.group(9)
-		NbSpec=+1
+		refDict[m.group(3)]=region
+		NbSpec+=1
 	if NbSpec==NbSpecLim:
-		time.sleep(0.05)#debug
-		print('GO==>'+name)#debug
+		print('JUMP')
+		NbSpec=0
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
 		for spec in specOrder:
