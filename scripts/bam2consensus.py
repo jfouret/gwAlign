@@ -69,7 +69,7 @@ with open(args.reference,'r') as refFile:
 os.chdir(rootedDir.results)
 
 ## step 1 - iteration for all species
-NbCallsDict=dict()
+NbCallDict=dict()
 for spec in refDict.keys():
 	## step 1.1 - Creation a vcf-formatted files for mpileup - base calling
 	mkdirp(spec)
@@ -99,12 +99,12 @@ for spec in refDict.keys():
 	submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
 	## step 1.3 - check the spe
-	NbCallsDict[spec]=int(submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip())
+	NbCallDict[spec]=int(submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip())
 
 ## step 2 - choose the to create the consensus based on the species with the most positions called
 
 chosenSpec=None
-for spec in NbCallsDict.keys():
+for spec in NbCallDict.keys():
 	if chosenSpec==None:
 		chosenSpec=spec
 		maxNbCall=NbCallDict[spec]
