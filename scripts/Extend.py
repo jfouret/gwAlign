@@ -118,6 +118,7 @@ for fasta in fasta_sequences:
 		NbSpec+=1
 	if NbSpec==NbSpecLim:
 		print('JUMP')
+		print(refDict)
 		NbSpec=0
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 		regionOrdList=list()
