@@ -75,8 +75,8 @@ for spec in refDict.keys():
 	mkdirp(spec)
 	#define options and positional args for software
 	mpileupOpt={
-		'-r':refDict[spec][reg][:-1], # [:-1] without strand information yet ...
-		'--reference':efDict[spec][fasta],
+		'-r':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
+		'--reference':refDict[spec]['fasta'],
 		'-v':'',
 		'-o':rootedDir.results+'/'+spec+'/call.vcf.gz'
 		}
