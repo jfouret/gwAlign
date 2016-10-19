@@ -45,7 +45,6 @@ bam2consensus.log()
 
 #Getting absolute path
 alnFileName=os.path.abspath(args.aln)
-bamFileName=os.path.abspath(args.bam)
 refsFileName=os.path.abspath(args.refs)
 
 #Define var
