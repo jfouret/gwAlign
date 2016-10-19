@@ -105,11 +105,11 @@ NbSpecLim=len(refDict.keys()) # number of species to match before to start searc
 for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
 	m=reID.match(name)
-	time.sleep(0.05)#debug
+	#time.sleep(0.05)#debug
 	#print(name)#debug
 	#print(m.group(3))#debug
 	if m and (m.group(3) in refDict.keys()):
-		print('GO==>'+name)#debug
+		#print('GO==>'+name)#debug
 		if m.group(9)==None:
 			region=''
 		else:
