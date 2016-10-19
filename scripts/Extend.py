@@ -15,6 +15,7 @@ parser.add_argument('-refs', metavar='/path', required=True, help="references to
 	"fasta: path to the fasta file used for short read alignments\n"+
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
+parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 args=parser.parse_args()
 
 # Import libraries
@@ -71,10 +72,6 @@ with open(args.reference,'r') as refFile:
 		spec,fasta,bam=line.split(';')
 		refDict[spec]=''
 
-		#TODO fai index ???
-		#TODO dict index ???.
-
-
 		## step 3.0 - check for the presence of indexation files
 
 		prefixRef=fasta.replace('.fa','')
@@ -94,7 +91,6 @@ with open(args.reference,'r') as refFile:
 		if not os.path.isfile(faiRef):
 			faiPos=[ref]
 			submitOneShell(samtools.create(positionals=faiPos,subprogram='faidx'))
-
 
 		#TODO check if spec names are corect(matching those in the multi aln file)
 		#TODO check the presence of hg19
