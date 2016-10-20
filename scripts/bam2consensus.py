@@ -13,7 +13,7 @@ parser.add_argument('-reference', metavar='/path', required=True, help="csv file
 	"fasta: path to the fasta file used for short read alignments\n"+
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', required=True, help="region of interest, please respect the format and the order of the ref file")
-parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
+#parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
 parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19/hg19.fa')
@@ -37,11 +37,13 @@ samtools.log()
 bcftools=Command('bcftools',min='1.3')
 bcftools.versionCtrl()
 bcftools.log()
+vcfconsensus=Command('vcf-consensus','vcftools | grep \'VCFtools (\' | sed \'s/VCFtools (v//g\' | sed \'s/)//g\'')
+vcfconsensus.log()
 java=Command('java')
 java.log()
-gatk_cmd=java.create(options={'-jar':args.gatk})
-gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
-gatk.log()
+#gatk_cmd=java.create(options={'-jar':args.gatk})
+#gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
+#gatk.log()
 megacc=Command('megacc')
 megacc.log()
 picard_cmd=java.create(options={'-jar':args.picard})
@@ -59,19 +61,23 @@ with open(args.reference,'r') as refFile:
 		if line!='':
 			spec,fasta,bam=line.split(';')
 			region=regions[index]
+			index+=1
 			if region!='':
 				refDict[spec]={
 					'fasta':fasta,
 					'bam':bam,
-					'reg':"'"+region+"'"
+					'reg':region
 				}
-			specOrder.append(spec)
+				specOrder.append(spec)
 os.chdir(rootedDir.results)
+
+print(refDict)
 
 ## step 1 - iteration for all species
 NbCallDict=dict()
 for spec in refDict.keys():
 	## step 1.1 - Creation a vcf-formatted files for mpileup - base calling
+	print("###\n"+str(refDict[spec])+"\n###\n")
 	mkdirp(spec)
 	#define options and positional args for software
 	mpileupOpt={
@@ -80,7 +86,7 @@ for spec in refDict.keys():
 		'-v':'',
 		'-o':rootedDir.results+'/'+spec+'/call.vcf.gz'
 		}
-	mpileupPos=[bam]
+	mpileupPos=[refDict[spec]['bam']]
 
 	submitOneShell(samtools.create(options=mpileupOpt,positionals=mpileupPos,subprogram='mpileup'))
 
@@ -99,12 +105,17 @@ for spec in refDict.keys():
 	submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
 	## step 1.3 - check the spe
-	NbCallDict[spec]=int(submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip())
-
+	NbCallDict[spec]=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip()
+	submitOneShell("bgzip "+rootedDir.results+'/'+spec+'/genotype.vcf'+"\n")
+	if NbCallDict[spec]=='':
+		NbCallDict[spec]=0
+	else:
+		NbCallDict[spec]=int(NbCallDict[spec])
 ## step 2 - choose the to create the consensus based on the species with the most positions called
 
 chosenSpec=None
 for spec in NbCallDict.keys():
+	print(spec)#debug
 	if chosenSpec==None:
 		chosenSpec=spec
 		maxNbCall=NbCallDict[spec]
@@ -120,6 +131,7 @@ NbCalls=NbCallDict[chosenSpec]
 
 ## step 3.1 - create consensus
 reg=refDict[chosenSpec]['reg']
+print('|'+reg+'|')
 if NbCalls==0:
 	import re
 	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
@@ -129,15 +141,23 @@ if NbCalls==0:
 		seqLen=max(pos)-min(pos)+1
 		csFile.write(re.sub("(.{60})", "\\1\n", '-'*seqLen, 0, re.DOTALL)+"\n")
 else:
-	gatkOpt={
-		'-T':'FastaAlternateReferenceMaker',
-		'-R':ref,
-		'-o':rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa',
-		'-L':reg[:-1],
-		'-V':rootedDir.results+'/'+chosenSpec+'/genotype.vcf',
-		'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
-	}
-	submitOneShell(gatk.create(options=gatkOpt))
+	#gatkOpt={
+	#	'-T':'FastaAlternateReferenceMaker',
+	#	'-R':refDict[chosenSpec]['fasta'],
+	#	'-o':rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa',
+	#	'-L':reg[:-1],
+	#	'-V':rootedDir.results+'/'+chosenSpec+'/genotype.vcf',
+	#	'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
+	#}
+	#submitOneShell(gatk.create(options=gatkOpt))
+	submitOneShell("tabix "+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+
+	cmdList=list()
+	cmdList.append(samtools.create(subprogram='faidx',positionals=[refDict[chosenSpec]['fasta'],reg[:-1]]))
+	cmdList.append(vcfconsensus.create(positionals=[rootedDir.results+'/'+spec+'/genotype.vcf.gz','> '+rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa']))
+
+	submitShell(cmdList, sep=' | ')
+
 	## step 3.2.0 Get the hg19 sequence
 	getRefOpt={
 		'R':args.hg19,
@@ -165,6 +185,7 @@ else:
 		# or just rename if strand +
 		os.rename(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa',rootedDir.results+'/'+chosenSpec+'/consensus.fa')
 
+	print('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
 	submitOneShell('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
 
 	## step 3.2.1 Build an alignment consensus-hg19 in aln.fasta
