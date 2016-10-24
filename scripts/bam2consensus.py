@@ -76,13 +76,13 @@ with open(args.reference,'r') as refFile:
 				specOrder.append(spec)
 os.chdir(rootedDir.results)
 
-print(refDict)
+#print(refDict)
 
 ## step 1 - iteration for all species
 NbCallDict=dict()
 for spec in refDict.keys():
 	## step 1.1 - Creation a vcf-formatted files for mpileup - base calling
-	print("###\n"+str(refDict[spec])+"\n###\n")
+	#print("###\n"+str(refDict[spec])+"\n###\n")
 	mkdirp(spec)
 	#define options and positional args for software
 	mpileupOpt={
@@ -129,7 +129,7 @@ for spec in refDict.keys():
 
 chosenSpec=None
 for spec in NbCallDict.keys():
-	print(spec)#debug
+	#print(spec)#debug
 	if chosenSpec==None:
 		chosenSpec=spec
 		maxNbCall=NbCallDict[spec]
@@ -183,12 +183,12 @@ else:
 	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
 	cmdList.append('grep \'##contig=<ID='+chromosome+',length=\'')
 	cmdList.append('sed -r "s/^##contig=<ID=(.*),length=(.*)>/\\1\t\\2/g" > '+rootedDir.results+'/'+spec+'/region.genome')
-	print('##GENOME LENGTH')
-	print("\n")
-	print(cmdList)
-	print("\n")
-	print('##GENOME LENGTH')
-	print("\n")
+	#print('##GENOME LENGTH')
+	#print("\n")
+	#print(cmdList)
+	#print("\n")
+	#print('##GENOME LENGTH')
+	#print("\n")
  	submitShell(cmdList,sep=' | ')
 
 	## step 2.2 - get the mask.bed
