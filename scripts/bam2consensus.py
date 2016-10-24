@@ -240,7 +240,7 @@ else:
 		else:
 			name, sequence = fasta.description, str(fasta.seq)
 	sequence=sequence.replace('N','-').replace('n','-')
-	with open(rootedDir.results+'/'+chosenSpec+'/consensus.fa') as consFile:
+	with open(rootedDir.results+'/'+chosenSpec+'/consensus.fa','w') as consFile:
 		consFile.write('>'+name+"\n"+sequence+"\n")
 	os.remove(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa')
 		
