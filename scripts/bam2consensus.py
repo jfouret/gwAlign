@@ -107,7 +107,6 @@ for spec in refDict.keys():
 		'-o':rootedDir.results+'/'+spec+'/genotype.vcf',
 		'-m':'',
 		'-M':'',
-		'--ploidy':'2',
 		'--pval-threshold':args.pval
 	}
 	cmdList=list()
