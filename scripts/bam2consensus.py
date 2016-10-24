@@ -14,6 +14,7 @@ parser.add_argument('-reference', metavar='/path', required=True, help="csv file
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', required=True, help="region of interest, please respect the format and the order of the ref file")
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
+parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 #parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
