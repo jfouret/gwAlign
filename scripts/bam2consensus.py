@@ -107,6 +107,7 @@ for spec in refDict.keys():
 		'-o':rootedDir.results+'/'+spec+'/genotype.vcf',
 		'-m':'',
 		'-M':'',
+		'--ploidy':'2',
 		'--pval-threshold':args.pval
 	}
 	cmdList=list()
@@ -116,7 +117,7 @@ for spec in refDict.keys():
 	
 	submitShell(cmdList,sep=' | ')
 
-	submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
+	#submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
 	## step 1.3 - check the spe
 	NbCallDict[spec]=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip()
