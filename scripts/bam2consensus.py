@@ -182,7 +182,7 @@ else:
 	cmdList=list()
 	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
 	cmdList.append('grep \'##contig=<ID='+chromosome+',length=\'')
-	cmdList.append('sed -r "s/^##contig=<ID=(.*),length=(.*)>/\\1\t\\2/g" > '+rootedDir.results+'/'+spec+'/region.genome')
+	cmdList.append("sed -r \"s/^##contig=<ID=(.*),length=(.*)>/\\1\t\\2/g\" > "+rootedDir.results+'/'+spec+'/region.genome')
 	print('##GENOME LENGTH')
 	print("\n")
 	print(cmdList)
