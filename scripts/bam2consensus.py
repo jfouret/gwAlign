@@ -175,7 +175,7 @@ else:
 	cmdList=list()
 	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
 	cmdList.append('grep -e \'^#\' -v')
-	cmdList.append('awk \'{print $1 "\t" ($2 -1) "\t" $2}\')')
+	cmdList.append('awk \'{print $1 "\t" ($2 -1) "\t" $2}\'')
 	cmdList.append(bedtools.create(subprogram='merge',positionals=[' > '+rootedDir.results+'/'+spec+'/cov.bed']))
 	submitShell(cmdList,sep=' | ')
 	submitOneShell('echo "'+'\t'.join([chromosome,str(start-1),str(end)])+'" > ' + rootedDir.results+'/'+spec+'/region.bed')
@@ -183,6 +183,12 @@ else:
 	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
 	cmdList.append('grep \'##contig=<ID='+chromosome+',length=\'')
 	cmdList.append('sed -r "s/^##contig=<ID=(.*),length=(.*)>/\1\t\2/g" > '+rootedDir.results+'/'+spec+'/region.genome')
+	print('##GENOME LENGTH')
+	print("\n")
+	print(cmdList)
+	print("\n")
+	print('##GENOME LENGTH')
+	print("\n")
  	submitShell(cmdList,sep=' | ')
 
 	## step 2.2 - get the mask.bed
@@ -205,7 +211,7 @@ else:
 	}
 	submitOneShell(bedtools.create(subprogram='complement',options=outCovOption,positionals=[' > '+rootedDir.results+'/'+spec+'/mask.bed']))
 
-	## create consensus with mask
+	## step 2.2 - create consensus with mask
 
 	consensusOpt={
 		'--mask':rootedDir.results+'/'+spec+'/mask.bed'
