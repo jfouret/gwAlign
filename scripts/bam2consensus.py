@@ -92,15 +92,24 @@ for spec in refDict.keys():
 
 	## step 1.2 - call genotype at vcf format including variant and non-variant
 
-	callOpt={
-		'-c':'',
-		'-M':'',
-		'-O':'v',
-		'-o':rootedDir.results+'/'+spec+'/genotype.vcf'
-		}
-	callPos=[rootedDir.results+'/'+spec+'/call.vcf.gz']
+	filterOpt={
+		'-e':"'DP<"+args.minCov+"'"
+	}
+	filterPos=[rootedDir.results+'/'+spec+'/call.vcf.gz']
 
-	submitOneShell(bcftools.create(options=callOpt,positionals=callPos,subprogram='call'))
+	callOpt={
+		'-O':'v',
+		'-o':rootedDir.results+'/'+spec+'/genotype.vcf',
+		'-m':'',
+		'-M':'',
+		'--pval-threshold':args.pval
+	}
+	cmdList=list()
+
+	cmdList.append(bcftools.create(options=filterOpt,positionals=filterPos,subprogram='filter'))
+	cmdList.append(bcftools.create(options=callOpt,subprogram='call'))
+	
+	submitShell(cmdList,sep=' | ')
 
 	submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
@@ -129,18 +138,22 @@ for spec in NbCallDict.keys():
 
 NbCalls=NbCallDict[chosenSpec]
 
-## step 3.1 - create consensus
+## step 2.1 - create empty consensus if no calls
 reg=refDict[chosenSpec]['reg']
-print('|'+reg+'|')
+chromosome,pos=reg[:-1].split(':')
+pos=pos.split('-')
+pos=[int(pos[0]),int(pos[1])]
+start=pos[0]
+end=pos[1]
+seqLen=max(pos)-min(pos)+1
 if NbCalls==0:
 	import re
 	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
 		csFile.write('>1 '+reg.split('-')[0]+"\n")
-		pos=reg[:-1].split(':')[1].split('-')
-		pos=[int(pos[0]),int(pos[1])]
-		seqLen=max(pos)-min(pos)+1
 		csFile.write(re.sub("(.{60})", "\\1\n", '-'*seqLen, 0, re.DOTALL)+"\n")
 else:
+	spec=chosenSpec
+
 	#gatkOpt={
 	#	'-T':'FastaAlternateReferenceMaker',
 	#	'-R':refDict[chosenSpec]['fasta'],
@@ -150,11 +163,53 @@ else:
 	#	'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
 	#}
 	#submitOneShell(gatk.create(options=gatkOpt))
+
+	## step 2.2 - create tabix and cov.bed and region.bed and region.bed
+
 	submitOneShell("tabix "+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	cmdList=list()
+	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	cmdList.append('grep -e \'^#\' -v')
+	cmdList.append('awk \'{print $1 "\t" ($2 -1) "\t" $2}\')')
+	cmdList.append(bedtools.create(subprogram='merge',positionals=[' > '+rootedDir.results+'/'+spec+'/cov.bed']))
+	submitShell(cmdList,sep=' | ')
+	submitOneShell('echo "'+'\t'.join([chromosome,str(start-1),str(end)])+'" > ' + rootedDir.results+'/'+spec+'/region.bed')
+	cmdList=list()
+	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	cmdList.append('grep \'##contig=<ID='+chromosome+',length=\'')
+	cmdList.append('sed -r "s/^##contig=<ID=(.*),length=(.*)>/\1\t\2/g" > '+rootedDir.results+'/'+spec+'/region.genome')
+ 	submitShell(cmdList,sep=' | ')
+
+	## step 2.2 - get the mask.bed
+
+	outRegOpt={
+		'-i':rootedDir.results+'/'+spec+'/region.bed',
+		'-g':rootedDir.results+'/'+spec+'/region.genome'
+	}
+	submitOneShell(bedtools.create(subprogram='complement',options=outRegOpt,positionals=[' > '+rootedDir.results+'/'+spec+'/out_region.bed']))
 
 	cmdList=list()
-	cmdList.append(samtools.create(subprogram='faidx',positionals=[refDict[chosenSpec]['fasta'],reg[:-1]]))
-	cmdList.append(vcfconsensus.create(positionals=[rootedDir.results+'/'+spec+'/genotype.vcf.gz','> '+rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa']))
+	cmdList.append('cat 'rootedDir.results+'/'+spec+'/out_region.bed '+rootedDir.results+'/'+spec+'/cov.bed')
+	cmdList.append(bedtools.create(subprogram='sort'))
+	cmdList.append(bedtools.create(subprogram='merge',positionals=[' > '+rootedDir.results+'/'+spec+'/out_and_cov.bed']))
+	submitShell(cmdList,sep=' | ')
+
+	outCovOption={
+		'-i':rootedDir.results+'/'+spec+'/out_and_cov.bed',
+		'-g':rootedDir.results+'/'+spec+'/region.genome'
+	}
+	submitOneShell(bedtools.create(subprogram='complement',options=outCovOption,positionals=[' > '+rootedDir.results+'/'+spec+'/mask.bed']))
+
+	## create consensus with mask
+
+	consensusOpt={
+		'--mask':rootedDir.results+'/'+spec+'/mask.bed'
+	}
+	consensusPos=[rootedDir.results+'/'+spec+'/genotype.vcf.gz','> '+rootedDir.results+'/'+spec+'/tmp_consensus.fa']
+
+	cmdList=list()
+	cmdList.append(samtools.create(subprogram='faidx',positionals=[refDict[spec]['fasta'],reg[:-1]]))
+	cmdList.append(bcftools.create(options=consensusOpt,positionals=consensusPos,subprogram='consensus'))
 
 	submitShell(cmdList, sep=' | ')
 
@@ -164,7 +219,7 @@ else:
 		'O':rootedDir.results+'/hg19.fa',
 		'INTERVAL_LIST':rootedDir.results+'/regions.txt',
 	}
-	
+
 	submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
 	chromosome,positions=refDict['hg19']['reg'].split(':')
 	start,end=positions[:-1].split('-')
@@ -173,19 +228,18 @@ else:
 	with open(rootedDir.results+'/regions.txt','a') as regFile:
 		regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
 	submitOneShell(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
-	if strand=='-':
-		#reverse complement
-		fasta_sequences=SeqIO.parse(open(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa'),'fasta')
-		for fasta in fasta_sequences:
+	fasta_sequences=SeqIO.parse(open(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa'),'fasta')
+	for fasta in fasta_sequences:
+		if strand=='-': #reverse complement
 			name, sequence = fasta.description, str(fasta.seq.reverse_complement())
-			with open(rootedDir.results+'/'+chosenSpec+'/consensus.fa') as consFile:
-				consFile.write('>'+name+"\n"+sequence+"\n")
-		os.remove(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa')
-	else:
-		# or just rename if strand +
-		os.rename(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa',rootedDir.results+'/'+chosenSpec+'/consensus.fa')
-
-	print('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
+		else:
+			name, sequence = fasta.description, str(fasta.seq)
+	sequence=sequence.replace('N','-').replace('n','-')
+	with open(rootedDir.results+'/'+chosenSpec+'/consensus.fa') as consFile:
+		consFile.write('>'+name+"\n"+sequence+"\n")
+	os.remove(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa')
+		
+	#print('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
 	submitOneShell('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
 
 	## step 3.2.1 Build an alignment consensus-hg19 in aln.fasta
