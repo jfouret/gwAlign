@@ -16,6 +16,8 @@ parser.add_argument('-refs', metavar='/path', required=True, help="references to
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
+parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
+parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 args=parser.parse_args()
 
 # Import libraries
@@ -133,7 +135,9 @@ for fasta in fasta_sequences:
 		bam2consensusOpt={
 			'-outDir':consensusOutPut,
 			'-reference':refsFileName,
-			'-reg':regions
+			'-reg':regions,
+			'-pval':args.pval,
+			'-minCov':args.minCov
 		}
 		cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
 		N+=1
