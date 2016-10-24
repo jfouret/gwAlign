@@ -189,7 +189,7 @@ else:
 	submitOneShell(bedtools.create(subprogram='complement',options=outRegOpt,positionals=[' > '+rootedDir.results+'/'+spec+'/out_region.bed']))
 
 	cmdList=list()
-	cmdList.append('cat 'rootedDir.results+'/'+spec+'/out_region.bed '+rootedDir.results+'/'+spec+'/cov.bed')
+	cmdList.append('cat '+rootedDir.results+'/'+spec+'/out_region.bed '+rootedDir.results+'/'+spec+'/cov.bed')
 	cmdList.append(bedtools.create(subprogram='sort'))
 	cmdList.append(bedtools.create(subprogram='merge',positionals=[' > '+rootedDir.results+'/'+spec+'/out_and_cov.bed']))
 	submitShell(cmdList,sep=' | ')
