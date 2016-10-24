@@ -52,6 +52,8 @@ megacc.log()
 picard_cmd=java.create(options={'-jar':args.picard})
 picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
 picard.log()
+bedtools=command('bedtools',"bedtools --version | sed -r 's/bedtools v(.*)/\1/g'")
+bedtools.log()
 
 #get absolute path from inputs
 regions=args.reg.split(',')
