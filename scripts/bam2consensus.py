@@ -13,11 +13,13 @@ parser.add_argument('-reference', metavar='/path', required=True, help="csv file
 	"fasta: path to the fasta file used for short read alignments\n"+
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', required=True, help="region of interest, please respect the format and the order of the ref file")
+parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 #parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
 parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19/hg19.fa')
 parser.add_argument('-hg19Dict', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19/hg19.dict')
+
 args=parser.parse_args()
 
 # Import libraries
