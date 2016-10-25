@@ -51,14 +51,14 @@ alnFileName=os.path.abspath(args.aln)
 refsFileName=os.path.abspath(args.refs)
 
 #Define var
-reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1})?$')
+reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 #Group
 #kgID= 1+2
 #spec= 3
 #exon num = 4
 #exon tot = 5
 #reg and strand = 9
-reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1})?$')
+reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 
 # configure batch
 Nlim=80
@@ -113,6 +113,8 @@ if not args.read_only:
 		#time.sleep(0.05)#debug
 		#print(name)#debug
 		#print(m.group(3))#debug
+		#consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
+		#if not 
 		if m and (m.group(3) in refDict.keys()):
 			#print('GO==>'+name)#debug
 			if m.group(9)==None:
