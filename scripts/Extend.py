@@ -162,13 +162,17 @@ for fasta in fasta_sequences:
 	m=reIDhg19.match(name)
 	outAln.write('>'+name+"\n")
 	outAln.write(sequence+"\n")
+	#print('NAME='+name+"\n")
 	if m:
+		#print('MATCH='+name+"\n")
 		pos=m.group(8).split(':')[1][:-1].split('-')
 		pos=[int(pos[0]),int(pos[1])]
 		seqLen=max(pos)-min(pos)+1
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(3)
 		while not os.path.exists(consensusOutPut+'/fileRooting.pkl'): # infinite loop if bug . . . (sol ? write an error file in error ? through def main: and main())
 			time.sleep(10)
+			print('WHILE='+name+"\n")
+			print('CONS='+consensusOutPut+"\n")
 		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" BAM:BAM-BAM\n"
 		outAln.write(header)
 		with open(consensusOutPut+'/results/hg19mapped.fa','r') as consensusFile:
