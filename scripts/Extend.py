@@ -18,6 +18,7 @@ parser.add_argument('-spec', metavar='name', required=True, help="name of the sp
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
+parser.add_argument('-read_only', metavar='T/F',action='store_true' , help="")
 args=parser.parse_args()
 
 # Import libraries
@@ -98,58 +99,60 @@ with open(args.refs,'r') as refFile:
 			#TODO check if spec names are corect(matching those in the multi aln file)
 			#TODO check the presence of hg19
 
-fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
-# step 1 - iterate over the aln File to compute consensus seq
-cmdList=list()
-NbSpec=0 # 0 species matched yet
-NbSpecLim=len(refDict.keys()) # number of species to match before to start searching consensus
 
-for fasta in fasta_sequences:
-	name, sequence = fasta.description, str(fasta.seq)
-	m=reID.match(name)
-	#time.sleep(0.05)#debug
-	#print(name)#debug
-	#print(m.group(3))#debug
-	if m and (m.group(3) in refDict.keys()):
-		#print('GO==>'+name)#debug
-		if m.group(9)==None:
-			region=''
-		else:
-			region=m.group(9)
-		refDict[m.group(3)]=region
-		NbSpec+=1
-	if NbSpec==NbSpecLim:
-		#print('JUMP')#debug
-		#print('refDict')#debug
-		#print(refDict)#debug
-		#print('specOrder')#debug
-		#print(specOrder)#debug
-		NbSpec=0
-		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
-		regionOrdList=list()
-		for spec in specOrder:
-			regionOrdList.append(refDict[spec])
-		#print('regionOrdList')#debug
-		#print(regionOrdList)#debug
-		regions=','.join(regionOrdList)# regions != region
-		bam2consensusOpt={
-			'-outDir':consensusOutPut,
-			'-reference':refsFileName,
-			'-reg':regions,
-			'-pval':args.pval,
-			'-minCov':args.minCov
-		}
-		cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
-		N+=1
-		if N==Nlim:
-			N=0
-			batchName='gwAlign_Batch_'+str(iterBatch)
-			submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='2',workdir=rootedDir.results))
-			cmdList=list()
-			iterBatch+=1
-if N!=0:
-	batchName='gwAlign_Batch_'+str(iterBatch)
-	submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,workdir=rootedDir.results))
+# step 1 - iterate over the aln File to compute consensus seq
+if not args.read_only:
+	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
+	cmdList=list()
+	NbSpec=0 # 0 species matched yet
+	NbSpecLim=len(refDict.keys()) # number of species to match before to start searching consensus
+
+	for fasta in fasta_sequences:
+		name, sequence = fasta.description, str(fasta.seq)
+		m=reID.match(name)
+		#time.sleep(0.05)#debug
+		#print(name)#debug
+		#print(m.group(3))#debug
+		if m and (m.group(3) in refDict.keys()):
+			#print('GO==>'+name)#debug
+			if m.group(9)==None:
+				region=''
+			else:
+				region=m.group(9)
+			refDict[m.group(3)]=region
+			NbSpec+=1
+		if NbSpec==NbSpecLim:
+			#print('JUMP')#debug
+			#print('refDict')#debug
+			#print(refDict)#debug
+			#print('specOrder')#debug
+			#print(specOrder)#debug
+			NbSpec=0
+			consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
+			regionOrdList=list()
+			for spec in specOrder:
+				regionOrdList.append(refDict[spec])
+			#print('regionOrdList')#debug
+			#print(regionOrdList)#debug
+			regions=','.join(regionOrdList)# regions != region
+			bam2consensusOpt={
+				'-outDir':consensusOutPut,
+				'-reference':refsFileName,
+				'-reg':regions,
+				'-pval':args.pval,
+				'-minCov':args.minCov
+			}
+			cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
+			N+=1
+			if N==Nlim:
+				N=0
+				batchName='gwAlign_Batch_'+str(iterBatch)
+				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='2',workdir=rootedDir.results))
+				cmdList=list()
+				iterBatch+=1
+	if N!=0:
+		batchName='gwAlign_Batch_'+str(iterBatch)
+		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,workdir=rootedDir.results))
 
 # step 2 - iterate over the aln File to add consensus in outFile
 fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
