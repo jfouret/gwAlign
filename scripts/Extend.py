@@ -149,12 +149,12 @@ if not args.read_only:
 			if N==Nlim:
 				N=0
 				batchName='gwAlign_Batch_'+str(iterBatch)
-				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='2',workdir=rootedDir.results))
+				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
 				cmdList=list()
 				iterBatch+=1
 	if N!=0:
 		batchName='gwAlign_Batch_'+str(iterBatch)
-		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,workdir=rootedDir.results))
+		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
 
 # step 2 - iterate over the aln File to add consensus in outFile
 fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
