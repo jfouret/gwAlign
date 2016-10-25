@@ -18,7 +18,7 @@ parser.add_argument('-spec', metavar='name', required=True, help="name of the sp
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
-parser.add_argument('-read_only', metavar='T/F',action='store_true' , help="")
+parser.add_argument('-read_only',action='store_true' , help="")
 args=parser.parse_args()
 
 # Import libraries
