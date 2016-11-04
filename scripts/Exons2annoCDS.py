@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description='Sort gene/transcript from an align
 parser.add_argument('-al', metavar='Alignment file', required=True, help="alignment file in fasta format")
 parser.add_argument('-out', metavar='Output directory', required=True, help="folder in which to write all computed alignments")
 parser.add_argument('-annotate_only',action='store_true', help="only annotation")
+parser.add_argument('-v',action='store_true', help="verbose")
 parser.add_argument('-spec', metavar='Species file' , required=True, help="file with all species/assembly name (one per line)")
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
@@ -27,8 +28,10 @@ rootedDir.logs.writeArgs(args)
 ##define function
 def writedb(query,file_name,header):
 	global cnx
-	#print query
-	#print("\n")
+	global args
+	if args.v:
+		print query
+		print("\n")
 	cursor=cnx.cursor()
 	cursor.execute(query)
 	rows=cursor.fetchall()
