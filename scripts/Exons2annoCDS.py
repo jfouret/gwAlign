@@ -21,14 +21,14 @@ import sys
 import mysql.connector
 from jupype import *
 
-rootedDir=rootDir(args.out)
+rootedDir=RootDir(args.out)
 rootedDir.logs.writeArgs()
 
 ##define function
 def writedb(query,file_name,header):
 	global cnx
-	print query
-	print("\n")
+	#print query
+	#print("\n")
 	cursor=cnx.cursor()
 	cursor.execute(query)
 	rows=cursor.fetchall()
