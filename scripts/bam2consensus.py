@@ -144,21 +144,28 @@ for spec in NbCallDict.keys():
 NbCalls=NbCallDict[chosenSpec]
 
 ## step 2.1 - create empty consensus if no calls
-reg=refDict[chosenSpec]['reg']
-chromosome,pos=reg[:-1].split(':')
-pos=pos.split('-')
-pos=[int(pos[0]),int(pos[1])]
-start=pos[0]
-end=pos[1]
-seqLen=max(pos)-min(pos)+1
+
 if NbCalls==0:
 	import re
+	reg=refDict["hg19"]['reg']
+	chromosome,pos=reg[:-1].split(':')
+	pos=pos.split('-')
+	pos=[int(pos[0]),int(pos[1])]
+	start=pos[0]
+	end=pos[1]
+	seqLen=max(pos)-min(pos)+1
 	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
 		csFile.write('>1 '+reg.split('-')[0]+"\n")
 		csFile.write(re.sub("(.{60})", "\\1\n", '-'*seqLen, 0, re.DOTALL)+"\n")
 else:
 	spec=chosenSpec
-
+	reg=refDict[chosenSpec]['reg']
+	chromosome,pos=reg[:-1].split(':')
+	pos=pos.split('-')
+	pos=[int(pos[0]),int(pos[1])]
+	start=pos[0]
+	end=pos[1]
+	seqLen=max(pos)-min(pos)+1
 	#gatkOpt={
 	#	'-T':'FastaAlternateReferenceMaker',
 	#	'-R':refDict[chosenSpec]['fasta'],
