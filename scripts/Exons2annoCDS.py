@@ -152,6 +152,8 @@ while line!='':
 			specie=line.split('_')[1]
 			if specie in species :
 				seq[specie]=seq[specie]+exons_file.readline().rstrip()
+			else:
+				exons_file.readline()
 			line=exons_file.readline()
 			gene_id=line.split('_')[0][1:]
 		prot_file=open(rootedDir.results+"/"+gene_name+"-"+ref_id+".fa","w")
