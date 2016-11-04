@@ -22,7 +22,7 @@ import mysql.connector
 from jupype import *
 
 rootedDir=RootDir(args.out)
-rootedDir.logs.writeArgs()
+rootedDir.logs.writeArgs(args)
 
 ##define function
 def writedb(query,file_name,header):
