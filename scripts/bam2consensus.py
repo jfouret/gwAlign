@@ -16,7 +16,7 @@ parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', require
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 #parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
-parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
+parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
 parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.fa')
 parser.add_argument('-hg19Dict', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.dict')
@@ -154,7 +154,7 @@ if NbCalls==0:
 	start=pos[0]
 	end=pos[1]
 	seqLen=max(pos)-min(pos)+1
-	with open(rootedDir.results+'/hg19mapped.fa','w') as csFile:
+	with open(rootedDir.results+'/consensus.fa','w') as csFile:
 		csFile.write('>1 '+reg.split('-')[0]+"\n")
 		csFile.write(re.sub("(.{60})", "\\1\n", '-'*seqLen, 0, re.DOTALL)+"\n")
 else:
@@ -238,14 +238,14 @@ else:
 		'INTERVAL_LIST':rootedDir.results+'/regions.txt',
 	}
 
-	submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
-	chromosome,positions=refDict['hg19']['reg'].split(':')
-	start,end=positions[:-1].split('-')
-	strand=positions[-1]
+	#submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
+	#chromosome,positions=refDict['hg19']['reg'].split(':')
+	#start,end=positions[:-1].split('-')
+	#strand=positions[-1]
 	#start=str(int(start)+1)
-	with open(rootedDir.results+'/regions.txt','a') as regFile:
-		regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
-	submitOneShell(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
+	#with open(rootedDir.results+'/regions.txt','a') as regFile:
+		#regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
+	#submitOneShell(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
 	fasta_sequences=SeqIO.parse(open(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa'),'fasta')
 	for fasta in fasta_sequences:
 		if strand=='-': #reverse complement
@@ -253,37 +253,37 @@ else:
 		else:
 			name, sequence = fasta.description, str(fasta.seq)
 	sequence=sequence.replace('N','-').replace('n','-')
-	with open(rootedDir.results+'/'+chosenSpec+'/consensus.fa','w') as consFile:
+	with open(rootedDir.results+'/consensus.fa','w') as consFile:
 		consFile.write('>'+name+"\n"+sequence+"\n")
 	os.remove(rootedDir.results+'/'+chosenSpec+'/tmp_consensus.fa')
 		
 	#print('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
-	submitOneShell('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
+	#submitOneShell('cat '+rootedDir.results+'/hg19.fa '+rootedDir.results+'/'+chosenSpec+'/consensus.fa > '+rootedDir.results+'/'+chosenSpec+'/data.fa')
 
 	## step 3.2.1 Build an alignment consensus-hg19 in aln.fasta
-	megaccOpt={
-		'-a':gitRepository+'/template/clustal_align_nucleotide.mao',
-		'-d':rootedDir.results+'/'+chosenSpec+'/data.fa',
-		'-o':rootedDir.results+'/'+chosenSpec+'/aln',
-		'-f':'Fasta'
-	}
-	submitOneShell(megacc.create(options=megaccOpt))
+	#megaccOpt={
+#		'-a':gitRepository+'/template/clustal_align_nucleotide.mao',
+#		'-d':rootedDir.results+'/'+chosenSpec+'/data.fa',
+#		'-o':rootedDir.results+'/'+chosenSpec+'/aln',
+#		'-f':'Fasta'
+#	}
+#	submitOneShell(megacc.create(options=megaccOpt))
 
 	## step 3.2.2 parse the alignment to prepare to hg19 mapped exon (no gap in hg19)
-	seqList=list()
-	fasta_sequences=SeqIO.parse(open(rootedDir.results+'/'+chosenSpec+'/aln.fasta'),'fasta')
-	for fasta in fasta_sequences:
-		name, sequence = fasta.description, str(fasta.seq)
-		seqList.append(sequence)
-	seqhg19=list(seqList[0])
-	seqConsensus=list(seqList[1])
-	mappedSeq=''
-	for index in range(len(seqhg19)):
-		if seqhg19[index]!='-':
-			mappedSeq+=seqConsensus[index]
-	with open(rootedDir.results+'/hg19mapped.fa','w') as mappedFile:
-		mappedFile.write('>hg19mapped '+reg+"\n")
-		mappedFile.write(mappedSeq+"\n")
+#	seqList=list()
+#	fasta_sequences=SeqIO.parse(open(rootedDir.results+'/'+chosenSpec+'/aln.fasta'),'fasta')
+#	for fasta in fasta_sequences:
+#		name, sequence = fasta.description, str(fasta.seq)
+#		seqList.append(sequence)
+#	seqhg19=list(seqList[0])
+#	seqConsensus=list(seqList[1])
+#	mappedSeq=''
+#	for index in range(len(seqhg19)):
+#		if seqhg19[index]!='-':
+#			mappedSeq+=seqConsensus[index]
+#	with open(rootedDir.results+'/hg19mapped.fa','w') as mappedFile:
+#		mappedFile.write('>hg19mapped '+reg+"\n")
+#		mappedFile.write(mappedSeq+"\n")
 
 	## step 4.0 - Create coverage.tab file for graph outputs TODO ==> put in a seperate programe just with outDir
 

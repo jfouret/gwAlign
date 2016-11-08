@@ -9,13 +9,13 @@ contact='julien@fouret.me'
 parser = argparse.ArgumentParser(description='Take an region multialignment file and add one speacies from bam file',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-outDir', metavar='/path', required=True, help="Output directory")
 parser.add_argument('-aln', metavar='/path', required=True, help="Alignment to extend")
-parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='batch')
+parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
 parser.add_argument('-refs', metavar='/path', required=True, help="references to be used csv file with id;fasta;bam in the order of priority  \n"+
 	"id: the id of the species used in the exon alignment file\n"+
 	"fasta: path to the fasta file used for short read alignments\n"+
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
-parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='/export/bin/picard-tools-2.1.0/picard.jar')
+parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 parser.add_argument('-read_only',action='store_true' , help="")
@@ -175,19 +175,18 @@ for fasta in fasta_sequences:
 			time.sleep(10)
 			#print('WHILE='+name+"\n")
 			#print('CONS='+consensusOutPut+"\n")
-		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" BAM:BAM-BAM\n"
+		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" mapped\n"
 		outAln.write(header)
-		with open(consensusOutPut+'/results/hg19mapped.fa','r') as consensusFile:
+		with open(consensusOutPut+'/results/consensus.fa','r') as consensusFile:
 			seq=''.join(consensusFile.readlines()[1:]).replace("\n",'')
-			if len(seq)!=seqLen:
-				sys.stderr.write('ERROR SEQ SIZE for '+name)
-				sys.exit(1)
+			#if len(seq)!=seqLen:
+			#	sys.stderr.write('ERROR SEQ SIZE for '+name)
+			#	sys.exit(1)
 		outAln.write(seq+"\n")
 outAln.close()
 
 # finish and saveRoot
 saveRoot(rootedDir)
-
 sys.exit(0)
 
 
