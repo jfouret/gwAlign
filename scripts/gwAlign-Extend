@@ -61,7 +61,7 @@ reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-
 reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 
 # configure batch
-Nlim=80
+Nlim=180
 N=0
 iterBatch=1
 index=0

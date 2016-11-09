@@ -16,10 +16,10 @@ parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', require
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 #parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
-parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
-parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.fa')
-parser.add_argument('-hg19Dict', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.dict')
+#parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
+#parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
+#parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.fa')
+#parser.add_argument('-hg19Dict', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.dict')
 
 args=parser.parse_args()
 
@@ -42,16 +42,16 @@ bcftools.versionCtrl()
 bcftools.log()
 vcfconsensus=Command('vcf-consensus','vcftools | grep \'VCFtools (\' | sed \'s/VCFtools (v//g\' | sed \'s/)//g\'')
 vcfconsensus.log()
-java=Command('java')
-java.log()
+#java=Command('java')
+#java.log()
 #gatk_cmd=java.create(options={'-jar':args.gatk})
 #gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
 #gatk.log()
-megacc=Command('megacc')
-megacc.log()
-picard_cmd=java.create(options={'-jar':args.picard})
-picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
-picard.log()
+#megacc=Command('megacc')
+#megacc.log()
+#picard_cmd=java.create(options={'-jar':args.picard})
+#picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
+#picard.log()
 bedtools=Command('bedtools',"bedtools --version | sed -r 's/bedtools v(.*)/\1/g'")
 bedtools.log()
 
@@ -239,10 +239,10 @@ else:
 	}
 
 	#submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
-	#chromosome,positions=refDict['hg19']['reg'].split(':')
-	#start,end=positions[:-1].split('-')
-	#strand=positions[-1]
-	#start=str(int(start)+1)
+	chromosome,positions=refDict[chosenSpec]['reg'].split(':')
+	start,end=positions[:-1].split('-')
+	strand=positions[-1]
+	start=str(int(start)+1)
 	#with open(rootedDir.results+'/regions.txt','a') as regFile:
 		#regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
 	#submitOneShell(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
@@ -287,40 +287,40 @@ else:
 
 	## step 4.0 - Create coverage.tab file for graph outputs TODO ==> put in a seperate programe just with outDir
 
-	if args.graphCov:
-		submitOneShell('echo "Position'+"\t"+'Reference'+"\t"+'Alternative'+"\t"+'Depth'+"\t"+'Genotype"'+' > coverage.tab ; grep -P "^#" -v calling.vcf |grep -e \'INDEL\' -v | awk -F "[\t ;:]" \'{print $2 "\t" $4 "\t" $5 "\t" $8 "\t" $(NF-1) }\' | sed \'s/DP=//g\' >> coverage.tab')
-		import pandas as pd
-		#import matplotlib
-		import plotly.offline as py
-		import plotly.graph_objs as go
-		#py.init_notebook_mode()
-		table=pd.DataFrame.from_csv('coverage.tab',sep="\t",index_col=False)
-		tableDict=dict()
-		tableDict['Reference Homozygote']=table[(table.Alternative=='.') & (table.Genotype=='0/0')]
-		tableDict['Alternative Homozygote']=table[(table.Alternative!='.') & (table.Genotype=='1/1')]
-		tableDict['Reference Heterozygote']=table[(table.Alternative=='.') & (table.Genotype!='0/0')]
-		tableDict['Alternative Heterozygote']=table[(table.Alternative!='.') & (table.Genotype!='1/1')]
-		data=[]
-		for key in tableDict.keys():
-			if tableDict[key].size!=0:
-				trace=go.Bar(
-					x=tableDict[key]['Position'],
-					y=tableDict[key]['Depth'],
-					text="\n"+'Reference: '+tableDict[key].Reference+"\n"+'Alternative: '+tableDict[key].Alternative,
-					name=key
-				)
-				data.append(trace)
-				layout=dict(
-					title=reg,
-					xaxis=dict(
-						title='Genomic positions (bases)'
-						),
-					yaxis=dict(
-						title='Genomic depth (bases)'
-						)
-					)
-				fig=go.Figure(data=data,layout=layout)
-		py.plot(fig,filename=rootedDir.reports+"/coverage.html",show_link=False,auto_open=False)
+#	if args.graphCov:
+#		submitOneShell('echo "Position'+"\t"+'Reference'+"\t"+'Alternative'+"\t"+'Depth'+"\t"+'Genotype"'+' > coverage.tab ; grep -P "^#" -v calling.vcf |grep -e \'INDEL\' -v | awk -F "[\t ;:]" \'{print $2 "\t" $4 "\t" $5 "\t" $8 "\t" $(NF-1) }\' | sed \'s/DP=//g\' >> coverage.tab')
+#		import pandas as pd
+#		#import matplotlib
+#		import plotly.offline as py
+#		import plotly.graph_objs as go
+#		#py.init_notebook_mode()
+#		table=pd.DataFrame.from_csv('coverage.tab',sep="\t",index_col=False)
+#		tableDict=dict()
+#		tableDict['Reference Homozygote']=table[(table.Alternative=='.') & (table.Genotype=='0/0')]
+#		tableDict['Alternative Homozygote']=table[(table.Alternative!='.') & (table.Genotype=='1/1')]
+#		tableDict['Reference Heterozygote']=table[(table.Alternative=='.') & (table.Genotype!='0/0')]
+#		tableDict['Alternative Heterozygote']=table[(table.Alternative!='.') & (table.Genotype!='1/1')]
+#		data=[]
+#		for key in tableDict.keys():
+#			if tableDict[key].size!=0:
+#				trace=go.Bar(
+#					x=tableDict[key]['Position'],
+#					y=tableDict[key]['Depth'],
+#					text="\n"+'Reference: '+tableDict[key].Reference+"\n"+'Alternative: '+tableDict[key].Alternative,
+#					name=key
+#				)
+#				data.append(trace)
+#				layout=dict(
+#					title=reg,
+#					xaxis=dict(
+#						title='Genomic positions (bases)'
+#						),
+#					yaxis=dict(
+#						title='Genomic depth (bases)'
+#						)
+#					)
+#				fig=go.Figure(data=data,layout=layout)
+#		py.plot(fig,filename=rootedDir.reports+"/coverage.html",show_link=False,auto_open=False)
 		#plot=data.plot.area(title=reg,legend=True)
 		#fig=plot.get_figure()
 		#fig.savefig(rootedDir.reports+"/coverage.png")
