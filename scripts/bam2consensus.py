@@ -232,11 +232,11 @@ else:
 	submitShell(cmdList, sep=' | ')
 
 	## step 3.2.0 Get the hg19 sequence
-	getRefOpt={
-		'R':args.hg19,
-		'O':rootedDir.results+'/hg19.fa',
-		'INTERVAL_LIST':rootedDir.results+'/regions.txt',
-	}
+#	getRefOpt={
+#		'R':args.hg19,
+#		'O':rootedDir.results+'/hg19.fa',
+#		'INTERVAL_LIST':rootedDir.results+'/regions.txt',
+#	}
 
 	#submitOneShell('cp '+args.hg19Dict+' '+rootedDir.results+'/regions.txt')
 	chromosome,positions=refDict[chosenSpec]['reg'].split(':')
