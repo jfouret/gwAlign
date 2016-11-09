@@ -18,7 +18,7 @@ parser.add_argument('-spec', metavar='name', required=True, help="name of the sp
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
-parser.add_argument('-read_only',action='store_true' , help="")
+parser.add_argument('-read_only',action='store_true' , help="Only read a previous run of the software")
 args=parser.parse_args()
 
 # Import libraries
@@ -40,9 +40,6 @@ samtools.versionCtrl()
 samtools.log()
 java=Command('java')
 java.log()
-picard_cmd=java.create(options={'-jar':args.picard})
-picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
-picard.log()
 bam2consensus=gitCommand(Git(gitRepository),'bam2consensus.py','bin')
 bam2consensus.log()
 
@@ -86,6 +83,9 @@ with open(args.refs,'r') as refFile:
 			dictRef=prefixRef+'.dict'
 
 			if not os.path.isfile(dictRef):
+				picard_cmd=java.create(options={'-jar':args.picard})
+				picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
+				picard.log()
 				dictOpt={
 					'REFERENCE':fasta,
 					'OUTPUT':dictRef

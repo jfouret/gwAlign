@@ -20,7 +20,7 @@ bins=$(addprefix bin/,$(progs))
 ### makefile core
 all : $(bins)
 
-$(bins) : 
+$(bins) : bin 
 	sed -e "s/SEDMATCHGITREPO/${GITREPOSED}/g" $(subst bin/,scripts/,$@) | \
 	sed -e "s/SEDMATCHGITVERSION/${GITVERSION}/g" | \
 	sed -e "s/SEDMATCHPICARD/$(subst /,\\/,${PICARD})/g" | \
