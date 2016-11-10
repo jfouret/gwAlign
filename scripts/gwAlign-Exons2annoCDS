@@ -9,9 +9,11 @@ contact='julien.fouret12@uniagro.fr'
 parser = argparse.ArgumentParser(description='Sort gene/transcript from an alignement and reassemble all exons. Get the corresponding name(NGNC) of the protein with the accession numer (from ucsc or ncbi) and add kegg, go and uniprot annotations',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('-al', metavar='Alignment file', required=True, help="alignment file in fasta format")
 parser.add_argument('-out', metavar='Output directory', required=True, help="folder in which to write all computed alignments")
-parser.add_argument('-annotate_only',action='store_true', help="only annotation")
+parser.add_argument('-mode', metavar='create,annotate,getCDS,align', required=True, help="annotate: annoation with ucsc database; getCDS: get complete CDS; ")
+parser.add_argument('-annotate',action='store_true', help="only annotation")
+parser.add_argument('-completeCDS',action='store_true', help="only annotation")
 parser.add_argument('-v',action='store_true', help="verbose")
-parser.add_argument('-spec', metavar='Species file' , required=True, help="file with all species/assembly name (one per line)")
+parser.add_argument('-spec', metavar='Species file' , required=True, help="tab separated file with all assembly name and assembly path (with .dict and .fai)")
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
 parser.add_argument('-db',metavar='Database', required=False, help="name of the database 'ncbi' or 'ucsc'",default='ucsc',choices=['ucsc','ncbi'])
@@ -22,8 +24,29 @@ import sys
 import mysql.connector
 from jupype import *
 
-rootedDir=RootDir(args.out)
-rootedDir.logs.writeArgs(args)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##define function
 def writedb(query,file_name,header):
@@ -113,65 +136,216 @@ def Get_annotation(ID):
 	writedb(" ".join(query_alias),rootedDir.results+"/"+gene_symbol+'-'+ID+".alias.bed",['alias'])
 	return gene_symbol
 #start program
-allSymbol=dict()
 
-iterNoName=1
-cnx = mysql.connector.connect(user='genome',host=args.host,port=args.port,database='hg19')
-species_file=open(args.spec,'r')
-species=[]
-for line in species_file.readlines():
-	specie=line.rstrip()
-	species.append(specie)
-species_file.close()
-seq=dict()
-exons_file=open(args.al,'r')
-line=exons_file.readline()
-#gene_id=line.split('_')[0][1:]+"_"+line.split('_')[1]
-gene_id=line.split('_')[0][1:]
-while line!='':
-	if args.annotate_only:
-		gene_name=Get_annotation(gene_id)
-		line2=exons_file.readline() # pass the sequence
-		line=exons_file.readline()
-		ref_id=gene_id
-		gene_id=line.split('_')[0][1:]
-		while (gene_id==ref_id) and (line!=''):
-			line2=exons_file.readline() # pass the sequence
-                        line=exons_file.readline()
-                        gene_id=line.split('_')[0][1:]
-	else:
-		for specie in species:
-			seq[specie]=""
-		gene_name=Get_annotation(gene_id)
- 		specie=line.split('_')[1]
-		seq[specie]=seq[specie]+exons_file.readline().rstrip()
-		line=exons_file.readline()
-		ref_id=gene_id
-		gene_id=line.split('_')[0][1:]
-		while (gene_id==ref_id) and (line!=''):
-			specie=line.split('_')[1]
-			if specie in species :
-				seq[specie]=seq[specie]+exons_file.readline().rstrip()
+#parse args
+
+modeList=args.mode.split(',')
+alnFileName=os.path.abspath(args.al)
+specDict=dict()
+wirh open(args.spec,'r') as species_file
+	for line in species_file.readlines():
+		specie,assembly=line.rstrip().split("\t")
+		specDict[specie]=assembly
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Create directories and listing...
+kgPathDict=dict()
+if 'create' in modeList:
+	rootedDir=RootDir(args.out)
+	rootedDir.logs.writeArgs(args)
+	# iter and create and print ref.fa
+	rehg19Exon1=re.compile('^(uc\w*)(\.\d*)_hg19_1_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
+	exons_file=open(alnFileName,'r')
+	for line in exons_file.readlines():
+		m=rehg19Exon1.match(line.rstrip())
+		if m:
+			kgID=m.group(1)+m.group(2)
+			path=rootedDir.results+"/kgPathDict.tab"+kgID
+			kgPathDict[kgID]=path
+			mkdirp(path)
+	with open(rootedDir.reports+'/','w') as kgPathDictFile:
+		for key in kgPathDict.keys:
+			kgPathDictFile.write(key+"\t"+kgPathDict[key]+"\n")
+
+else:
+	rootedDir=loadRoot(args.out)
+	kgPathDict=dict()
+	with open(rootedDir.reports+'/','w') as kgPathDictFile:
+		for line in kgPathDictFile.readlines():
+			key,value=line.rstrip().split("\t")
+			kgPathDict[key]=value
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# get CDS
+#Same as annotate but picardtools and batching ...
+if 'getCDS' in modeList:
+	reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+.*)?$')
+	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
+	cmdList=list()
+	iterBatch=1
+	Nlim=120
+	N=0
+	init=True
+	for fasta in fasta_sequences:
+		name, sequence = fasta.description, str(fasta.seq)
+		m=reID.match(name)
+		if m and (m.group(3) in specDict.keys()):
+			spec=m.group(3)
+			kgID=m.group(1)+m.group(2)
+			if init:
+				oldkgID=kgID
+			elif kgID!=oldkgID:
+				oldkgPath=kgPathDict[oldkgID]
+				for key in specDict.keys():
+					specPath=oldkgPath+'/'+key
+					cmdList.append('echo ">'+key+"\n"+'" > '+specPath+'/cds.fa')
+					cmdList.append('cat $(ls -t '+specPath+'/*/cds.fa | xargs -n 1 echo | tac | xargs) | grep -P \'^>\' -v | sed -e \'s/\\n//g\' >> '+specPath+'/cds.fa')
+					cmdList.append('echo "\\n" >> '+specPath+'/cds.fa')
+				cmdList.append('cat $(ls -t '+oldkgPath+'/*/cds.fa | xargs) ; rm $(ls -t '+oldkgPath+'/*/cds.fa | xargs)')
+				N+=1
+				oldkgID=kgID
+			if N==Nlim:
+				batchName='gwAlign_getCDS_'+str(iterBatch)
+				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+				cmdList=list()
+				iterBatch+=1
+				N=0
+			mkdirp(kgPathDict[kgID]+'/'+spec)
+			if m.group(9)==None:
+				regionList=[]
+				mkdirp(kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4))
+				cmdList.append('echo ">'+spec+'\\n---"'+kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/cds.fa')
 			else:
-				exons_file.readline()
+				regionList=m.group(9).split(';')
+				mkdirp(kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4))
+				regFileName=kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/region.list'
+				getRefOpt={
+					'R':specDict[spec],
+					'O':kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/cds.fa',
+					'INTERVAL_LIST':regFileName
+				}
+				submitOneShell('cp '+specDict[spec].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict'+' '+regFileName)
+				for region in regionList:
+					chromosome,positions=region.split(':')
+					start,end=positions[:-1].split('-')
+					strand=positions[-1]
+					start=str(int(start)+1)
+					with open(rootedDir.results+'/regions.txt','a') as regFile:
+						regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
+				cmdList.append(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
+				cmdList.append('rm '+regFileName)
+	if N!=0:
+		batchName='gwAlign_getCDS_'+str(iterBatch)
+		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+
+
+
+
+
+
+
+
+
+### Annotation
+# TODO adpat and remove exon printing ...
+if 'annotate' in modeList:
+	allSymbol=dict()
+	iterNoName=1
+	cnx = mysql.connector.connect(user='genome',host=args.host,port=args.port,database='hg19')
+
+	species=specDict.keys()
+
+	seq=dict()
+	exons_file=open(args.al,'r')
+	line=exons_file.readline()
+	#gene_id=line.split('_')[0][1:]+"_"+line.split('_')[1]
+	gene_id=line.split('_')[0][1:]
+	while line!='':
+		if args.annotate_only:
+			gene_name=Get_annotation(gene_id)
+			line2=exons_file.readline() # pass the sequence
 			line=exons_file.readline()
+			ref_id=gene_id
 			gene_id=line.split('_')[0][1:]
-		prot_file=open(rootedDir.results+"/"+gene_name+"-"+ref_id+".fa","w")
-		for specie in seq:
-			prot_file.write(">"+specie+"\n")
-			prot_file.write(seq[specie]+"\n")
-		prot_file.close()
-exons_file.close()
-cnx.close()
+			while (gene_id==ref_id) and (line!=''):
+				line2=exons_file.readline() # pass the sequence
+	                        line=exons_file.readline()
+	                        gene_id=line.split('_')[0][1:]
+		else:
+			for specie in species:
+				seq[specie]=""
+			gene_name=Get_annotation(gene_id)
+	 		specie=line.split('_')[1]
+			seq[specie]=seq[specie]+exons_file.readline().rstrip()
+			line=exons_file.readline()
+			ref_id=gene_id
+			gene_id=line.split('_')[0][1:]
+			while (gene_id==ref_id) and (line!=''):
+				specie=line.split('_')[1]
+				if specie in species :
+					seq[specie]=seq[specie]+exons_file.readline().rstrip()
+				else:
+					exons_file.readline()
+				line=exons_file.readline()
+				gene_id=line.split('_')[0][1:]
+			prot_file=open(rootedDir.results+"/"+gene_name+"-"+ref_id+".fa","w")
+			for specie in seq:
+				prot_file.write(">"+specie+"\n")
+				prot_file.write(seq[specie]+"\n")
+			prot_file.close()
+	exons_file.close()
+	cnx.close()
 
-with open(rootedDir.reports+'/all_withCounts.txt','w') as logFile:
-	for key in allSymbol:
-		logFile.write(key+"\t"+str(allSymbol[key])+"\n")
+	with open(rootedDir.reports+'/all_withCounts.txt','w') as logFile:
+		for key in allSymbol:
+			logFile.write(key+"\t"+str(allSymbol[key])+"\n")
 
-with open(rootedDir.reports+'/duplicate.txt','w') as logFile:
-	for key in allSymbol:
-		if allSymbol[key]>0:
-			logFile.write(key+"\n")
+	with open(rootedDir.reports+'/duplicate.txt','w') as logFile:
+		for key in allSymbol:
+			if allSymbol[key]>0:
+				logFile.write(key+"\n")
+
+## end of annotation
+
+
 
 
 saveRoot(rootedDir)
