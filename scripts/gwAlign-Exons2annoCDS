@@ -10,30 +10,24 @@ parser = argparse.ArgumentParser(description='Sort gene/transcript from an align
 parser.add_argument('-al', metavar='Alignment file', required=True, help="alignment file in fasta format")
 parser.add_argument('-out', metavar='Output directory', required=True, help="folder in which to write all computed alignments")
 parser.add_argument('-mode', metavar='create,annotate,getCDS,align', required=True, help="annotate: annoation with ucsc database; getCDS: get complete CDS; ")
-parser.add_argument('-annotate',action='store_true', help="only annotation")
-parser.add_argument('-completeCDS',action='store_true', help="only annotation")
 parser.add_argument('-v',action='store_true', help="verbose")
+parser.add_argument('-debug',action='store_true', help="verbose")
 parser.add_argument('-spec', metavar='Species file' , required=True, help="tab separated file with all assembly name and assembly path (with .dict and .fai)")
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
 parser.add_argument('-db',metavar='Database', required=False, help="name of the database 'ncbi' or 'ucsc'",default='ucsc',choices=['ucsc','ncbi'])
+parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
+parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
+
 args=parser.parse_args()
 
 import os
 import sys
 import mysql.connector
+from Bio import SeqIO
+from Bio.Seq import Seq
+import re
 from jupype import *
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -142,25 +136,13 @@ def Get_annotation(ID):
 modeList=args.mode.split(',')
 alnFileName=os.path.abspath(args.al)
 specDict=dict()
-wirh open(args.spec,'r') as species_file
+with open(args.spec,'r') as species_file:
 	for line in species_file.readlines():
-		specie,assembly=line.rstrip().split("\t")
-		specDict[specie]=assembly
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+		if args.v:
+			print('##Parsing species## '+line)
+		if line.rstrip()!='':
+			specie,assembly=line.rstrip().split("\t")
+			specDict[specie]=assembly
 
 
 
@@ -171,26 +153,32 @@ wirh open(args.spec,'r') as species_file
 ### Create directories and listing...
 kgPathDict=dict()
 if 'create' in modeList:
-	rootedDir=RootDir(args.out)
+	rootedDir=RootDir(args.out,pbs=True)
 	rootedDir.logs.writeArgs(args)
 	# iter and create and print ref.fa
-	rehg19Exon1=re.compile('^(uc\w*)(\.\d*)_hg19_1_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
+	rehg19Exon1=re.compile('^>(uc\w*)(\.\d*)_hg19_1_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 	exons_file=open(alnFileName,'r')
 	for line in exons_file.readlines():
 		m=rehg19Exon1.match(line.rstrip())
 		if m:
+			if args.v:
+				print('##Create_dirs## '+line)
 			kgID=m.group(1)+m.group(2)
-			path=rootedDir.results+"/kgPathDict.tab"+kgID
+			path=rootedDir.results+"/"+kgID
 			kgPathDict[kgID]=path
 			mkdirp(path)
-	with open(rootedDir.reports+'/','w') as kgPathDictFile:
-		for key in kgPathDict.keys:
+	with open(rootedDir.reports+'/kgPathDictFile.tab','w') as kgPathDictFile:
+		for key in kgPathDict.keys():
 			kgPathDictFile.write(key+"\t"+kgPathDict[key]+"\n")
-
+	saveRoot(rootedDir)
 else:
-	rootedDir=loadRoot(args.out)
+	if args.debug:
+		rootedDir=RootDir(args.out,pbs=True)
+		rootedDir.logs.writeArgs(args)
+	else:
+		rootedDir=loadRoot(args.out)
 	kgPathDict=dict()
-	with open(rootedDir.reports+'/','w') as kgPathDictFile:
+	with open(rootedDir.reports+'/kgPathDictFile.tab','r') as kgPathDictFile:
 		for line in kgPathDictFile.readlines():
 			key,value=line.rstrip().split("\t")
 			kgPathDict[key]=value
@@ -210,71 +198,88 @@ else:
 
 
 
-
-
-
-
 # get CDS
 #Same as annotate but picardtools and batching ...
 if 'getCDS' in modeList:
-	reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+.*)?$')
+	java=Command('java')
+	#java.log()
+	picard_cmd=java.create(options={'-XX:ParallelGCThreads=1 -jar':args.picard})
+	picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
+	#picard.log()
+	reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s*(\w+.*)?$')
 	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 	cmdList=list()
 	iterBatch=1
-	Nlim=120
+	Nlim=10
 	N=0
 	init=True
 	for fasta in fasta_sequences:
 		name, sequence = fasta.description, str(fasta.seq)
+		#if args.v:
+			#print('##Getting CDS## '+name)
 		m=reID.match(name)
 		if m and (m.group(3) in specDict.keys()):
+			#if args.v:
+				#if m.group(9)==None:
+					#toPrint='None'
+				#else:
+					#toPrint=m.group(9)
+				#print('##Matching group 9## |'+toPrint+'|')
 			spec=m.group(3)
 			kgID=m.group(1)+m.group(2)
 			if init:
 				oldkgID=kgID
+				init=False
 			elif kgID!=oldkgID:
+				if args.v:
+					print('##kg Iteration##'+str(N))
 				oldkgPath=kgPathDict[oldkgID]
 				for key in specDict.keys():
+					regFileName=oldkgPath+'/'+key+'/region.list'
+					#TODO si regionlist exist
+					if os.path.isfile(regFileName+'.tmp'):
+						getRefOpt={
+							'R':specDict[spec],
+							'O':kgPathDict[kgID]+'/'+spec+'/cds.fa',
+							'INTERVAL_LIST':regFileName,
+							'VERBOSITY':'ERROR',
+							'QUIET':'true'
+						}
+						cmdList.append('cat '+specDict[key].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict '+regFileName+'.tmp'+' > '+regFileName+' ; rm '+regFileName+'.tmp')
+						cmdList.append(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
+						cmdList.append('rm '+regFileName)
 					specPath=oldkgPath+'/'+key
-					cmdList.append('echo ">'+key+"\n"+'" > '+specPath+'/cds.fa')
-					cmdList.append('cat $(ls -t '+specPath+'/*/cds.fa | xargs -n 1 echo | tac | xargs) | grep -P \'^>\' -v | sed -e \'s/\\n//g\' >> '+specPath+'/cds.fa')
-					cmdList.append('echo "\\n" >> '+specPath+'/cds.fa')
-				cmdList.append('cat $(ls -t '+oldkgPath+'/*/cds.fa | xargs) ; rm $(ls -t '+oldkgPath+'/*/cds.fa | xargs)')
 				N+=1
 				oldkgID=kgID
 			if N==Nlim:
 				batchName='gwAlign_getCDS_'+str(iterBatch)
-				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='3',workdir=rootedDir.results))
 				cmdList=list()
 				iterBatch+=1
 				N=0
 			mkdirp(kgPathDict[kgID]+'/'+spec)
 			if m.group(9)==None:
-				regionList=[]
-				mkdirp(kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4))
-				cmdList.append('echo ">'+spec+'\\n---"'+kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/cds.fa')
+				mkdirp(kgPathDict[kgID]+'/'+spec+'/missingExon'+m.group(4))
+				cmdList.append('echo ">'+'exon_'+m.group(4)+"\n"+'---" > '+kgPathDict[kgID]+'/'+spec+'/missingExon'+m.group(4)+'/cds.fa')
+			elif m.group(9)=='mapped':
+				cmdList.append('echo ">'+'exon_'+m.group(4)+"\n"+sequence+'" >>'+kgPathDict[kgID]+'/'+spec+'/cds.fa')
 			else:
 				regionList=m.group(9).split(';')
-				mkdirp(kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4))
-				regFileName=kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/region.list'
-				getRefOpt={
-					'R':specDict[spec],
-					'O':kgPathDict[kgID]+'/'+spec+'/exon'+m.group(4)+'/cds.fa',
-					'INTERVAL_LIST':regFileName
-				}
-				submitOneShell('cp '+specDict[spec].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict'+' '+regFileName)
+				regFileName=kgPathDict[kgID]+'/'+spec+'/region.list'
 				for region in regionList:
 					chromosome,positions=region.split(':')
 					start,end=positions[:-1].split('-')
 					strand=positions[-1]
-					start=str(int(start)+1)
-					with open(rootedDir.results+'/regions.txt','a') as regFile:
-						regFile.write("\t".join([chromosome,start,end,strand,'.'])+"\n")
-				cmdList.append(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
-				cmdList.append('rm '+regFileName)
+					if int(start)>int(end):
+						mkdirp(kgPathDict[kgID]+'/'+spec+'/rearrangedExon'+m.group(4))
+						cmdList.append('echo ">'+'exon_'+m.group(4)+"\n"+sequence+'" >>'+kgPathDict[kgID]+'/'+spec+'/rearrangedExon'+m.group(4)+'/cds.fa')
+					else:
+						with open(regFileName+'.tmp','a') as regFile:
+							regFile.write("\t".join([chromosome,start,end,strand,'exon_'+m.group(4)])+"\n")
+
 	if N!=0:
 		batchName='gwAlign_getCDS_'+str(iterBatch)
-		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='2',workdir=rootedDir.results))
 
 
 
