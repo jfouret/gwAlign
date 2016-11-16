@@ -14,7 +14,7 @@ GITREPO=$(shell pwd)
 GITREPOSED=$(shell pwd | sed 's/\//\\\//g')
 GITVERSION=$(shell git describe --tags | sed 's/^v//g')
 
-progs = gwAlign-Extend gwAlign-Exons2annoCDS KeggGo.py bam2consensus.py
+progs = gwAlign-Extend gwAlign-Exons2annoCDS KeggGo.py bam2consensus.py alignCDS.py phasingBlocks.py
 bins=$(addprefix bin/,$(progs))
 
 ### makefile core
