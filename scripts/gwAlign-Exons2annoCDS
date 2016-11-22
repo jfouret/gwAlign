@@ -86,7 +86,7 @@ def Get_annotation(ID):
 	query_go.append(query_where)
 
 	annotPath=rootedDir.results+"/"+ID+"/annotation/"
-	
+
 	os.chdir()
 	writedb(" ".join(query_name),annotPath+"/name.tab",['geneSymbol','kgID','uniprot','refSeq','kgName'])
 	name_file=open(annotPath+"/name.tab","r")
@@ -283,7 +283,7 @@ if 'annotate' in modeList:
 	allSymbol=dict()
 	iterNoName=1
 	cnx = mysql.connector.connect(user='genome',host=args.host,port=args.port,database='hg19')
-	for key in kgPathDict.keys()
+	for key in kgPathDict.keys():
 		gene_name=Get_annotation(key)
 	cnx.close()
 	with open(rootedDir.reports+'/all_withCounts.txt','w') as logFile:
