@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Compute a codon-based alignment wi
 parser.add_argument('-gene_dir', metavar='/path', required=True, help="Folder correspoding to the gene ID with all species subdirectories")
 parser.add_argument('-ref', metavar='ref_species' , required=False, help="name of the reference specie",default='hg19')
 parser.add_argument('-macse', metavar='.jar' , required=False, help="jar file path for macse program",default='SEDMATCHMACSE')
-
+parser.add_argument('-only_size' , action='store_true', help="jar file path for macse program")
 
 args=parser.parse_args()
 
@@ -36,6 +36,10 @@ def submitOneShell(cmdString):
 	out,err=child.communicate() 
 	return {'out':out,'err':err} 
 
+if args.only_size:
+	do_align=False
+else:
+	do_align=True
 
 speciesList=os.walk(args.gene_dir).next()[1]
 os.chdir(args.gene_dir)
@@ -76,7 +80,13 @@ for species in speciesExons.keys():
 		if i==1:
 			speciesCDS[species]=''
 		for j in range(1,1+len(speciesExons[species][i])):
-			speciesCDS[species]+=speciesExons[species][i][j]
+			specSeq=speciesExons[species][i][j]
+			if len(specSeq)<10*refExLen[i]:
+				speciesCDS[species]+=speciesExons[species][i][j]
+			else:
+				sys.stderr.write("Waring 'Exon "+str(i)+" too long for "+species+"' at : "+args.gene_dir+"\n")
+				do_align=True
+
 
 with open('ref.fa','w') as refAln:
 	with open('aligned.fa','w') as mapAln:
@@ -91,9 +101,13 @@ with open('exons.pos','w') as exPos:
 		repeat=str(ExNum)+"\n"
 		exPos.write(repeat*refExLen[ExNum])
 
-command='java -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
+command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
 
-alnProc=submitOneShell(command)
+if do_align:
+	alnProc=submitOneShell(command)
+	if alnProc['err']!='':
+		with open ('error.txt','a'):
+			errFile.write(alnProc['err'])
+			sys.stderr.write('Error with alignments alignment at : '+args.gene_dir+"\n")
 
-if alnProc['err']!='':
-	print(alnProc['err'])
+
