@@ -65,14 +65,14 @@ def Get_annotation(ID):
 	query_alias=['SELECT ref.alias']
 	query_alias.append('FROM kgAlias ref')
 	query_alias.append(query_where)
-		
+
 	query_uniprot=['SELECT ref.geneSymbol,feats.start,feats.end,class.val AS `class`,type.val AS `type`,feats.softEndBits AS `OutOfRange`']
 	query_uniprot.append('FROM uniProt.feature feats')
 	query_uniprot.append('LEFT JOIN kgXref ref ON (ref.spID=feats.acc)')
 	query_uniprot.append('LEFT JOIN uniProt.featureClass class ON (class.id=feats.featureClass)')
 	query_uniprot.append('LEFT JOIN uniProt.featureType type ON (type.id=feats.featureType)')
 	query_uniprot.append(query_where)
-		
+
 	query_kegg=['SELECT ref.geneSymbol,kegg.mapID,des.description']
 	query_kegg.append('FROM keggPathway kegg')
 	query_kegg.append('LEFT JOIN kgXref ref ON (ref.kgID=kegg.kgID)')
@@ -86,8 +86,7 @@ def Get_annotation(ID):
 	query_go.append(query_where)
 
 	annotPath=rootedDir.results+"/"+ID+"/annotation/"
-
-	os.chdir()
+	mkdirp(annotPath)
 	writedb(" ".join(query_name),annotPath+"/name.tab",['geneSymbol','kgID','uniprot','refSeq','kgName'])
 	name_file=open(annotPath+"/name.tab","r")
 	name_file_line1=name_file.readlines()[1]
@@ -113,7 +112,7 @@ def Get_annotation(ID):
 	else:
 		allSymbol[gene_symbol]=0
 	name_file.close()
-	with  open(annotPath+"/consName.txt",'r') as consNameFIle:
+	with  open(annotPath+"/consName.txt",'w') as consNameFIle:
 		consNameFIle.write(gene_symbol)
 	#os.system('mv '+rootedDir.results+"/"+ID+".name.tab"+' '+rootedDir.results+"/"+gene_symbol+'-'+ID+".name.tab")
 	writedb(" ".join(query_uniprot),annotPath+"/uniprot.tab",['geneSymbol','start','end','class','type','OutOfRange'])
@@ -124,7 +123,6 @@ def Get_annotation(ID):
 #start program
 
 #parse args
-
 modeList=args.mode.split(',')
 
 ### Create directories and listing...
@@ -219,7 +217,6 @@ if 'getCDS' in modeList:
 				N+=1
 				oldkgID=kgID
 
-
 			if N==Nlim:
 				batchName='gwAlign_getCDS_'+str(iterBatch)
 				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='3',workdir=rootedDir.results))
@@ -251,7 +248,6 @@ if 'getCDS' in modeList:
 		batchName='gwAlign_getCDS_'+str(iterBatch)
 		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='2',workdir=rootedDir.results))
 
-
 if 'align' in modeList:
 	alignCDS=gitCommand(Git(gitRepository),'alignCDS.py','bin')
 	alignCDS.log()
@@ -277,6 +273,78 @@ if 'align' in modeList:
 		batchName='gwAlign_alignCDS_'+str(iterBatch)
 		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
 
+if 'phase_filter' in modeList:
+	phaseBlocks=gitCommand(Git(gitRepository),'phasingBlocks.py','bin')
+	phaseBlocks.log()
+	cmdList=list()
+	N=0
+	Nlim=100
+	iterBatch=1
+	with open(args.phase_filter,'r') as configFile:
+		filterDict=dict()
+		for line in configFile.readlines():
+			line=line.rstrip()
+			m=re.match('>(.*)',line)
+			if m:
+				filterName=m.group(1)
+				filterDict[filterName]=dict()
+			elif line!='#':
+				lineList=line.split('=')
+				filterDict[filterName][lineList[0]]=lineList[1]
+	for filterName in filterDict.keys():
+		optPhaseBlocks={
+				'-gene_dir':kgPathDict[key],
+				'-ref':args.ref,
+				'-name':filterName
+		}
+		for opt in filterDict[filterName].keys():
+			optPhaseBlocks['-'+opt]=filterDict[filterName][opt]
+		
+		for kgID in kgPathDict.keys():
+			optPhaseBlocks['-gene_dir']=kgPathDict[kgID]
+			cmdList.append(phaseBlocks.create(kgPathDict[kgID],optPhaseBlocks))
+			N+=1
+			if N==Nlim:
+				batchName='gwAlign_phasing_'+str(iterBatch)
+				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+				cmdList=list()
+				N=0
+				iterBatch+=1
+		if N!=0:
+			batchName='gwAlign_phasing_'+str(iterBatch)
+			submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+
+if 'stat_phasing' in modeList:
+	with open(args.phase_filter,'r') as configFile:
+		filterDict=dict()
+		for line in configFile.readlines():
+			line=line.rstrip()
+			m=re.match('>(.*)',line)
+			if m:
+				filterName=m.group(1)
+				filterDict[filterName]=dict()
+			elif line!='#':
+				lineList=line.split('=')
+				filterDict[filterName][lineList[0]]=lineList[1]
+	for filterName in filterDict.keys():
+		with open(rootedDir.reports+'/'+filterName+'_stat.tab','w') as statFile:
+			statFile.write("\t".join(['kgID','before','after'])+"\n")
+			for kgID in kgPathDict.keys():
+				alnFileName=kgPathDict[kgID]+'/'+filterName+'/codon_aln.fa'
+				alnBlockFileName=kgPathDict[kgID]+'/'+filterName+'/codon_aln_blocks.fa'
+				if os.path.isfile(alnFileName) and os.path.isfile(alnBlockFileName):
+					with open(alnFileName) as alnFile:
+						line=alnFile.readline()
+						line=alnFile.readline()
+						beforeLen=str(len(line.rstrip()))
+					with open(alnBlockFileName) as alnBlockFile:
+						line=alnBlockFile.readline()
+						line=alnBlockFile.readline()
+						afterLen=str(len(line.rstrip()))
+				else:
+					afterLen='NA'
+					beforeLen='NA'
+				statFile.write("\t".join([kgID,beforeLen,afterLen])+"\n")
 
 ### Annotation
 if 'annotate' in modeList:

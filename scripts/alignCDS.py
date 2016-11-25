@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser(description='Compute a codon-based alignment wi
 parser.add_argument('-gene_dir', metavar='/path', required=True, help="Folder correspoding to the gene ID with all species subdirectories")
 parser.add_argument('-ref', metavar='ref_species' , required=False, help="name of the reference specie",default='hg19')
 parser.add_argument('-macse', metavar='.jar' , required=False, help="jar file path for macse program",default='SEDMATCHMACSE')
-parser.add_argument('-only_size' , action='store_true', help="jar file path for macse program")
+parser.add_argument('-only_size' , action='store_true', help="option for debug..")
+parser.add_argument('-boost_mem' , action='store_true', help="allow 500 Go of memmory")
 
 args=parser.parse_args()
 
@@ -100,13 +101,15 @@ with open('exons.pos','w') as exPos:
 	for ExNum in range(1,1+len(refExLen)):
 		repeat=str(ExNum)+"\n"
 		exPos.write(repeat*refExLen[ExNum])
-
-command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
+if args.boost_mem:
+	command='java -Xmx500g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
+else:
+	command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
 
 if do_align:
 	alnProc=submitOneShell(command)
 	if alnProc['err']!='':
-		with open ('error.txt','a'):
+		with open ('error.txt','a') as errFile:
 			errFile.write(alnProc['err'])
 			sys.stderr.write('Error with alignments alignment at : '+args.gene_dir+"\n")
 
