@@ -17,9 +17,8 @@ from jupype import *
 
 rootedDir=loadRoot(args.outDir)
 
-reGene=re.compile('^(dup[0-9]+_)*(kg_|sp_|rs_)*(.*)-uc.*(go|kegg).bed$')
 
-fileList=os.listdir(rootedDir.results)
+dirList=os.listdir(rootedDir.results)
 goDict=dict()
 goList=list()
 headGO=['goId','name','type','genes']
@@ -29,48 +28,36 @@ headKegg=['mapId','name','genes']
 keggFileName=rootedDir.reports+'/kegg.tab'
 goFileName=rootedDir.reports+'/go.tab'
 
-for fileName in fileList:
-	m=reGene.match(fileName)
-	if m:
-		if m.group(1)==None:
-			dup=''
+for dirName in dirList:
+	with open(rootedDir.results+'/'+dirName+'/annotation/consName.txt') as consNameFile:
+		gene=consNameFile.readline().rstrip()
+	File=open(rootedDir.results+'/'+dirName+'/annotation/go.tab','r')
+	File.readline()
+	for line in File.readlines():
+		line=line.rstrip()
+		lineList=line.split("\t")
+		goId=lineList[1]
+		name=lineList[2]
+		gotype=lineList[3]
+		if goId in goDict.keys():
+			goDict[goId].append(gene)
 		else:
-			dup=m.group(1)
-		if m.group(2)==None:
-			prefix=''
+			goDict[goId]=[gene]
+			goList.append([goId,name,gotype])
+	File.close()
+	File=open(rootedDir.results+'/'+dirName+'/annotation/kegg.tab','r')
+	File.readline()
+	for line in File.readlines():
+		line=line.rstrip()
+		lineList=line.split("\t")
+		mapId=lineList[1]
+		name=lineList[2]
+		if mapId in keggDict.keys():
+			keggDict[mapId].append(gene)
 		else:
-			prefix=m.group(2)
-		gene=dup+prefix+m.group(3)
-		system=m.group(4)
-		if system=='go':
-			File=open(rootedDir.results+'/'+fileName,'r')
-			File.readline()
-			for line in File.readlines():
-				line=line.rstrip()
-				lineList=line.split("\t")
-				goId=lineList[1]
-				name=lineList[2]
-				gotype=lineList[3]
-				if goId in goDict.keys():
-					goDict[goId].append(gene)
-				else:
-					goDict[goId]=[gene]
-					goList.append([goId,name,gotype])
-			File.close()
-		elif system=='kegg':
-			File=open(rootedDir.results+'/'+fileName,'r')
-			File.readline()
-			for line in File.readlines():
-				line=line.rstrip()
-				lineList=line.split("\t")
-				mapId=lineList[1]
-				name=lineList[2]
-				if mapId in keggDict.keys():
-					keggDict[mapId].append(gene)
-				else:
-					keggList.append([mapId,name])
-					keggDict[mapId]=[gene]
-			File.close()
+			keggList.append([mapId,name])
+			keggDict[mapId]=[gene]
+	File.close()
 keggFile=open(keggFileName,'w')
 keggFile.write("\t".join(headKegg)+"\n")
 goFile=open(goFileName,'w')
@@ -83,4 +70,3 @@ for lineList in goList:
 	goFile.write("\t".join(lineList)+"\t"+','.join(goDict[goId])+"\n")
 goFile.close()
 keggFile.close()
-
