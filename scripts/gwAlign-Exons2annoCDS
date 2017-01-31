@@ -382,10 +382,8 @@ if 'biblio' in modeList:
 		os.chdir(annotPath+'/biblio')
 		cmdList.append('cd '+annotPath+'/biblio')
 		prefixTerm={
-			'nipah':'\'nipah,paramyxovirus,paramyxoviridae,hendra,hennipavirus\'',
-			'immunoviro':'\'innate immunity,innate immune,virus,viral,immune response\'',
-			'metabo':'\'ROS,reactive oxygen species,oxydative stress,free radicals,reactive nitrogen species\'',
-			'neuro':'\'brain damage,encephalitis,neuropathology,neurological disorders,neurological deseases\''
+			'hennipa':'\'Nipah,NiV,Hendra,Hev,hennipavirus\'',
+			'paramyxo':'\'Nipah,NiV,Hendra,Hev,hennipavirus,paramyxovirus,paramyxoviridae\''
 		}
 		with open('../consName.txt','r')as consNameFile:
 			consName=consNameFile.readline().rstrip()
