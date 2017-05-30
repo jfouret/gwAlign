@@ -382,8 +382,8 @@ if 'biblio' in modeList:
 		os.chdir(annotPath+'/biblio')
 		cmdList.append('cd '+annotPath+'/biblio')
 		prefixTerm={
-			'hennipa':'\'Nipah,NiV,Hendra,Hev,hennipavirus\'',
-			'paramyxo':'\'Nipah,NiV,Hendra,Hev,hennipavirus,paramyxovirus,paramyxoviridae\''
+			'hennipa':'\'Nipah,Hendra,henipavirus\'',
+			'paramyxo':'\'Nipah,Hendra,henipavirus,paramyxovirus,paramyxoviridae\''
 		}
 		with open('../consName.txt','r')as consNameFile:
 			consName=consNameFile.readline().rstrip()
