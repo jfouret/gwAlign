@@ -89,7 +89,7 @@ for spec in refDict.keys():
 		'-L':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
 		'-T':'HaplotypeCaller',
 		'-R':refDict[spec]['fasta'],
-		'-I':refDict[spec]['bam']
+		'-I':refDict[spec]['bam'],
 		'-pcr_indel_model':'NONE',
 		'-o':rootedDir.results+'/'+spec+'/call.vcf'
 		}
