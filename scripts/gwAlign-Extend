@@ -17,7 +17,6 @@ parser.add_argument('-refs', metavar='/path', required=True, help="references to
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
-parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 parser.add_argument('-read_only',action='store_true' , help="Only read a previous run of the software")
 args=parser.parse_args()
 
@@ -141,7 +140,6 @@ if not args.read_only:
 				'-outDir':consensusOutPut,
 				'-reference':refsFileName,
 				'-reg':regions,
-				'-pval':args.pval,
 				'-minCov':args.minCov
 			}
 			cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
