@@ -18,7 +18,7 @@ GITREPO=$(shell pwd)
 GITREPOSED=$(shell pwd | sed 's/\//\\\//g')
 GITVERSION=$(shell git describe --tags | sed 's/^v//g')
 SEDGENEPYTHIA=$(shell echo ${GENEPYTHIA} | sed 's/\//\\\//g')
-
+SEDGATK=$(shell echo ${GATK} | sed 's/\//\\\//g')
 
 progs = gwAlign-Extend gwAlign-Exons2annoCDS KeggGo.py bam2consensus.py alignCDS.py phasingBlocks.py
 bins=$(addprefix bin/,$(progs))
@@ -29,7 +29,7 @@ all : $(bins)
 $(bins) : bin 
 	sed -e "s/SEDMATCHGITREPO/${GITREPOSED}/g" $(subst bin/,scripts/,$@) | \
 	sed -e "s/SEDMATCHGITVERSION/${GITVERSION}/g" | \
-	sed -e "s/SEDMATCHGATK/${GATK}/g"
+	sed -e "s/SEDMATCHGATK/${SEDGATK}/g"
 	sed -e "s/SEDMATCHPICARD/$(subst /,\\/,${PICARD})/g" | \
 	sed -e "s/SEDMATCHGENEPYTHIA/${SEDGENEPYTHIA}/g" | \
 	sed -e "s/SEDMATCHQUEUE/${QUEUE}/g" | \
