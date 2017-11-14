@@ -13,7 +13,7 @@ parser.add_argument('-reference', metavar='/path', required=True, help="csv file
 	"fasta: path to the fasta file used for short read alignments\n"+
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', required=True, help="region of interest, please respect the format and the order of the ref file")
-parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
+#parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 #parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
 parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='SEDMATCHGATK')
 #parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
@@ -90,7 +90,7 @@ for spec in refDict.keys():
 		'-T':'HaplotypeCaller',
 		'-R':refDict[spec]['fasta'],
 		'-I':refDict[spec]['bam'],
-		'-pcr_indel_model':'NONE',
+		'--pcr_indel_model':'NONE',
 		'-o':rootedDir.results+'/'+spec+'/call.vcf'
 		}
 	mpileupPos=[refDict[spec]['bam']]
