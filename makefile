@@ -9,6 +9,8 @@ MACSE=/export/source/script/macse_v1.2.jar
 QUEUE=batch
 #default path for genepythia
 GENEPYTHIA=/export/work/batnipah/juTools/funMining/bibliography
+#default path for GATK
+GATK=/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar
 
 ### DO NOT CHANGE
 SHELL=bash
@@ -27,6 +29,7 @@ all : $(bins)
 $(bins) : bin 
 	sed -e "s/SEDMATCHGITREPO/${GITREPOSED}/g" $(subst bin/,scripts/,$@) | \
 	sed -e "s/SEDMATCHGITVERSION/${GITVERSION}/g" | \
+	sed -e "s/SEDMATCHGATK/${GATK}/g"
 	sed -e "s/SEDMATCHPICARD/$(subst /,\\/,${PICARD})/g" | \
 	sed -e "s/SEDMATCHGENEPYTHIA/${SEDGENEPYTHIA}/g" | \
 	sed -e "s/SEDMATCHQUEUE/${QUEUE}/g" | \

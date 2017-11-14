@@ -15,7 +15,7 @@ parser.add_argument('-reference', metavar='/path', required=True, help="csv file
 parser.add_argument('-reg', metavar='chr:start-end+;chr:start-end-;...', required=True, help="region of interest, please respect the format and the order of the ref file")
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
-#parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='/export/bin/source/GenomeAnalysisTK/GenomeAnalysisTK.jar')
+parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='SEDMATCHGATK')
 #parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 #parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
 #parser.add_argument('-hg19', metavar='/path', required=False, help="hg19 genome for base mapping",default='/export/data/Genomes/Human/hg19_ucsc/hg19.fa')
@@ -42,11 +42,11 @@ bcftools.versionCtrl()
 bcftools.log()
 vcfconsensus=Command('vcf-consensus','vcftools | grep \'VCFtools (\' | sed \'s/VCFtools (v//g\' | sed \'s/)//g\'')
 vcfconsensus.log()
-#java=Command('java')
-#java.log()
-#gatk_cmd=java.create(options={'-jar':args.gatk})
-#gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
-#gatk.log()
+java=Command('java')
+java.log()
+gatk_cmd=java.create(options={'-jar':args.gatk})
+gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
+gatk.log()
 #megacc=Command('megacc')
 #megacc.log()
 #picard_cmd=java.create(options={'-jar':args.picard})
@@ -81,46 +81,48 @@ os.chdir(rootedDir.results)
 ## step 1 - iteration for all species
 NbCallDict=dict()
 for spec in refDict.keys():
-	## step 1.1 - Creation a vcf-formatted files for mpileup - base calling
+	## step 1.1 - Creation a vcf-formatted files with GATK haplotype caller - base calling
 	#print("###\n"+str(refDict[spec])+"\n###\n")
 	mkdirp(spec)
-	#define options and positional args for software
-	mpileupOpt={
-		'-r':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
-		'--reference':refDict[spec]['fasta'],
-		'-v':'',
-		'-o':rootedDir.results+'/'+spec+'/call.vcf.gz'
+	#define options and positional args for software, considering PCR free # TODO put this in argument by default
+	HaploCallOpt={
+		'-L':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
+		'-T':'HaplotypeCaller',
+		'-R':refDict[spec]['fasta'],
+		'-I':refDict[spec]['bam']
+		'-pcr_indel_model':'NONE',
+		'-o':rootedDir.results+'/'+spec+'/call.vcf'
 		}
 	mpileupPos=[refDict[spec]['bam']]
 
-	submitOneShell(samtools.create(options=mpileupOpt,positionals=mpileupPos,subprogram='mpileup'))
+	submitOneShell(gatk.create(options=HaploCallOpt))
 
 	## step 1.2 - call genotype at vcf format including variant and non-variant
 
-	filterOpt={
-		'-e':"'DP<"+args.minCov+"'"
-	}
-	filterPos=[rootedDir.results+'/'+spec+'/call.vcf.gz']
+	#filterOpt={
+	#	'-e':"'DP<"+args.minCov+"'"
+	#}
+	#filterPos=[rootedDir.results+'/'+spec+'/call.vcf.gz']
 
-	callOpt={
-		'-O':'v',
-		'-o':rootedDir.results+'/'+spec+'/genotype.vcf',
-		'-m':'',
-		'-M':'',
-		'--pval-threshold':args.pval
-	}
-	cmdList=list()
+	#callOpt={
+	#	'-O':'v',
+	#	'-o':rootedDir.results+'/'+spec+'/genotype.vcf',
+	#	'-m':'',
+	#	'-M':'',
+	#	'--pval-threshold':args.pval
+	#}
+	#cmdList=list()
 
-	cmdList.append(bcftools.create(options=filterOpt,positionals=filterPos,subprogram='filter'))
-	cmdList.append(bcftools.create(options=callOpt,subprogram='call'))
+	#cmdList.append(bcftools.create(options=filterOpt,positionals=filterPos,subprogram='filter'))
+	#cmdList.append(bcftools.create(options=callOpt,subprogram='call'))
 	
-	submitShell(cmdList,sep=' | ')
+	#submitShell(cmdList,sep=' | ')
 
 	#submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
 	## step 1.3 - check the spe
 	NbCallDict[spec]=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip()
-	submitOneShell("bgzip "+rootedDir.results+'/'+spec+'/genotype.vcf'+"\n")
+	submitOneShell("bgzip "+rootedDir.results+'/'+spec+'/call.vcf'+"\n")
 	if NbCallDict[spec]=='':
 		NbCallDict[spec]=0
 	else:
@@ -178,16 +180,16 @@ else:
 
 	## step 2.2 - create tabix and cov.bed and region.bed and region.bed
 
-	submitOneShell("tabix "+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	submitOneShell("tabix "+rootedDir.results+'/'+spec+'/call.vcf.gz')
 	cmdList=list()
-	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/call.vcf.gz')
 	cmdList.append('grep -e \'^#\' -v')
 	cmdList.append('awk \'{print $1 "\t" ($2 -1) "\t" $2}\'')
 	cmdList.append(bedtools.create(subprogram='merge',positionals=[' > '+rootedDir.results+'/'+spec+'/cov.bed']))
 	submitShell(cmdList,sep=' | ')
 	submitOneShell('echo "'+'\t'.join([chromosome,str(start-1),str(end)])+'" > ' + rootedDir.results+'/'+spec+'/region.bed')
 	cmdList=list()
-	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/genotype.vcf.gz')
+	cmdList.append('zmore '+rootedDir.results+'/'+spec+'/call.vcf.gz')
 	cmdList.append('grep \'##contig=<ID='+chromosome+',length=\'')
 	cmdList.append('sed -r "s/^##contig=<ID=(.*),length=(.*)>/\\1\t\\2/g" > '+rootedDir.results+'/'+spec+'/region.genome')
 	#print('##GENOME LENGTH')
@@ -223,7 +225,7 @@ else:
 	consensusOpt={
 		'--mask':rootedDir.results+'/'+spec+'/mask.bed'
 	}
-	consensusPos=[rootedDir.results+'/'+spec+'/genotype.vcf.gz','> '+rootedDir.results+'/'+spec+'/tmp_consensus.fa']
+	consensusPos=[rootedDir.results+'/'+spec+'/call.vcf.gz','> '+rootedDir.results+'/'+spec+'/tmp_consensus.fa']
 
 	cmdList=list()
 	cmdList.append(samtools.create(subprogram='faidx',positionals=[refDict[spec]['fasta'],reg[:-1]]))
