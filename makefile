@@ -29,7 +29,7 @@ all : $(bins)
 $(bins) : bin 
 	sed -e "s/SEDMATCHGITREPO/${GITREPOSED}/g" $(subst bin/,scripts/,$@) | \
 	sed -e "s/SEDMATCHGITVERSION/${GITVERSION}/g" | \
-	sed -e "s/SEDMATCHGATK/${SEDGATK}/g"
+	sed -e "s/SEDMATCHGATK/${SEDGATK}/g" \
 	sed -e "s/SEDMATCHPICARD/$(subst /,\\/,${PICARD})/g" | \
 	sed -e "s/SEDMATCHGENEPYTHIA/${SEDGENEPYTHIA}/g" | \
 	sed -e "s/SEDMATCHQUEUE/${QUEUE}/g" | \
