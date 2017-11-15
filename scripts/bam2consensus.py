@@ -42,11 +42,13 @@ bcftools.versionCtrl()
 bcftools.log()
 vcfconsensus=Command('vcf-consensus','vcftools | grep \'VCFtools (\' | sed \'s/VCFtools (v//g\' | sed \'s/)//g\'')
 vcfconsensus.log()
-java=Command('java')
-java.log()
-gatk_cmd=java.create(options={'-jar':args.gatk})
-gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
-gatk.log()
+#java=Command('java')
+#java.log()
+#gatk_cmd=java.create(options={'-jar':args.gatk})
+#gatk=Command(gatk_cmd,gatk_cmd+' -version 2>&1')
+#gatk.log()
+platypus=Command("python /export/source/archive/Platypus_0.8.1/Platypus.py",'echo "(see program log)"')
+platypus.log()
 #megacc=Command('megacc')
 #megacc.log()
 #picard_cmd=java.create(options={'-jar':args.picard})
@@ -85,18 +87,19 @@ for spec in refDict.keys():
 	#print("###\n"+str(refDict[spec])+"\n###\n")
 	mkdirp(spec)
 	#define options and positional args for software, considering PCR free # TODO put this in argument by default
-	HaploCallOpt={
-		'-L':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
-		'-T':'HaplotypeCaller',
-		'-R':refDict[spec]['fasta'],
-		'-I':refDict[spec]['bam'],
-		'--pcr_indel_model':'NONE',
-		'-o':rootedDir.results+'/'+spec+'/call.vcf',
-		'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
+	PlatypusOpt={
+		'--regions':refDict[spec]['reg'][:-1], # [:-1] without strand information yet ...
+		'--refFile':refDict[spec]['fasta'],
+		'--bamFiles':refDict[spec]['bam'],
+		'--assemble':'1',
+		'--output':rootedDir.results+'/'+spec+'/call.vcf',
+		'--minMapQual=':'5',
+		'--logFileName':rootedDir.results+'/'+spec+'/call.log',
+		'--minReads':'5'
 		}
-	mpileupPos=[refDict[spec]['bam']]
+	#mpileupPos=[refDict[spec]['bam']]
 
-	submitOneShell(gatk.create(options=HaploCallOpt))
+	submitOneShell(platypus.create(options=PlatypusOpt,subprogram='callVariants'))
 
 	## step 1.2 - call genotype at vcf format including variant and non-variant
 
