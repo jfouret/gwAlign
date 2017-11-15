@@ -91,7 +91,8 @@ for spec in refDict.keys():
 		'-R':refDict[spec]['fasta'],
 		'-I':refDict[spec]['bam'],
 		'--pcr_indel_model':'NONE',
-		'-o':rootedDir.results+'/'+spec+'/call.vcf'
+		'-o':rootedDir.results+'/'+spec+'/call.vcf',
+		'-U':'ALLOW_SEQ_DICT_INCOMPATIBILITY'
 		}
 	mpileupPos=[refDict[spec]['bam']]
 
