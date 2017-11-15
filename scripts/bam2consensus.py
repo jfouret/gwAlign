@@ -122,7 +122,7 @@ for spec in refDict.keys():
 	#submitOneShell("rm "+rootedDir.results+'/'+spec+'/genotype.vcf.idx')
 
 	## step 1.3 - check the spe
-	NbCallDict[spec]=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/genotype.vcf')['out'].rstrip()
+	NbCallDict[spec]=submitOneShell("grep -c -v -P '^#' "+rootedDir.results+'/'+spec+'/call.vcf')['out'].rstrip()
 	submitOneShell("bgzip "+rootedDir.results+'/'+spec+'/call.vcf'+"\n")
 	if NbCallDict[spec]=='':
 		NbCallDict[spec]=0
