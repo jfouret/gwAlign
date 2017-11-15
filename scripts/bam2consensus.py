@@ -93,7 +93,7 @@ for spec in refDict.keys():
 		'--bamFiles':refDict[spec]['bam'],
 		'--assemble':'1',
 		'--output':rootedDir.results+'/'+spec+'/call.vcf',
-		'--minMapQual=':'5',
+		'--minMapQual':'5',
 		'--logFileName':rootedDir.results+'/'+spec+'/call.log',
 		'--minReads':'5'
 		}
