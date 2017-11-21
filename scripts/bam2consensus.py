@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import argparse
 gitRepository='SEDMATCHGITREPO'
 version='SEDMATCHGITVERSION'
@@ -85,7 +85,8 @@ samfile=dict()
 	
 chosenSpec=None
 for spec in refDict.keys():
-	samfile[spec] = pysam.AlignmentFile(refDict[spec]['bam'], "rb" )
+	samfile[spec]=pysam.AlignmentFile(refDict[spec]['bam'], "rb" )
+
 	tA,tT,tC,tG=samfile[spec].count_coverage(region=refDict[chosenSpec]['reg'][:-1])  #array.arrays
 	tA=np.array(tA)
 	tT=np.array(tT)
