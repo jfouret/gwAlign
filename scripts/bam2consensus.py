@@ -25,6 +25,7 @@ args=parser.parse_args()
 
 # Import libraries
 import sys
+import numpy as np
 import os
 import pysam
 from Bio import SeqIO
@@ -40,6 +41,9 @@ rootedDir.logs.writeArgs(args)
 # Definition of used software
 platypus=Command("python /export/source/archive/Platypus_0.8.1/Platypus.py",'echo "(see program log)"')
 platypus.log()
+
+minCov=int(args.minCov)
+minCovVar=int(args.minCovVar)
 
 iupacDict={
 	"GT":"K",
@@ -86,14 +90,19 @@ samfile=dict()
 chosenSpec=None
 for spec in refDict.keys():
 	samfile[spec]=pysam.AlignmentFile(refDict[spec]['bam'], "rb" )
-
-	tA,tT,tC,tG=samfile[spec].count_coverage(region=refDict[chosenSpec]['reg'][:-1])  #array.arrays
+	reg=refDict[spec]['reg']
+	contig,pos=reg[:-1].split(':')
+	pos=pos.split('-')
+	pos=[int(pos[0]),int(pos[1])]
+	start=pos[0]-1 # 0based inclusive
+	end=pos[1] # 0based exclusive
+	tA,tT,tC,tG=samfile[spec].count_coverage(contig=contig,start=start,stop=end)  #array.arrays
 	tA=np.array(tA)
 	tT=np.array(tT)
 	tC=np.array(tC)
 	tG=np.array(tG)
 	tcoverage=tA+tT+tC+tG
-	tYield=tcovergade.sum()
+	tYield=tcoverage.sum()
 	#print(spec)#debug
 	if chosenSpec==None:
 		chosenSpec=spec
@@ -132,12 +141,12 @@ if Yield==0:
 		csFile.write("consensus\n---"+"\n")
 else:
 
-	mkdirp(Chosenspec)
+	mkdirp(chosenSpec)
 	# get mapped reads in case of the iteration is to be done
 	with open('mapped.fq','w') 	as mapped:
-		for read in samfile[Chosenspec].fetch(region=refDict[chosenSpec]['reg'][:-1]): 
-			mapped.write(">%s\n%s\n+\n%s\n"  % (read.name, read.query_sequence, "".join(map(chr,[x + 33 for x in read.query_qualities]))))
-	samfile[Chosenspec].close()
+		for read in samfile[chosenSpec].fetch(region=refDict[chosenSpec]['reg'][:-1]): 
+			mapped.write(">%s\n%s\n+\n%s\n"  % (read.query_name, read.query_sequence, "".join(map(chr,[x + 33 for x in read.query_qualities]))))
+	samfile[chosenSpec].close()
 	## step 2.1 - Variant calling
 	#define options and positional args for software, considering PCR free # TODO put this in argument by default
 	PlatypusOpt={
@@ -160,7 +169,7 @@ else:
 
 	vcf=pysam.VariantFile(rootedDir.results+'/'+chosenSpec+'/call.vcf')
 
-	variants=dict()
+	variant=dict()
 	for rec in vcf.fetch():
 		variant[rec.pos]=dict()
 		variant[rec.pos]['ref']=rec.ref
@@ -183,11 +192,11 @@ else:
 	fastaFile=pysam.FastaFile(refDict[chosenSpec]['fasta'])
 	contig_length=fastaFile.get_reference_length(contig)
 	if start!=1:
-		left=fastaFile.fetch(contig+":"+str(max(1,start-200))+"-"+str(start-1))
+		left=fastaFile.fetch(region=contig+":"+str(max(1,start-200))+"-"+str(start-1))
 	else:
 		left=''
 	if end!=contig_length:
-		right=fastaFile.fetch(contig+":"+str(end+1)+"-"+str(min(contig_length,end+200)))
+		right=fastaFile.fetch(region=contig+":"+str(end+1)+"-"+str(min(contig_length,end+200)))
 	else:
 		right=''
 	fastaFile.close()
@@ -197,19 +206,19 @@ else:
 	for pos in range(start,1+end):
 		index=pos-start
 		# Have a variant been called with sufficient coverage ?
-		if (pos in variant.keys()) and (variant[pos]["sample"]["NR"]>=args.minCovVar):
+		if (pos in variant.keys()) and (variant[pos]["sample"]["NR"]>=minCovVar):
 			# if unique SNP with no variants
 			if (len(variant[pos]['alt'][0]+variant[pos]['ref'][0])==2) and ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))) and (variant[pos]['alt'][0]!='.'):
 				consensus+=iupacDict[(variant[pos]['ref'][0]+variant[pos]['alt'][0]).upper()]
 			else:
 				consensus+=variant[pos]['alt'][0]
-		elif A[index] >= max(T[index],C[index],G[index],args.minCov):
+		elif A[index] >= max(T[index],C[index],G[index],minCov):
 			consensus+="A"
-		elif T[index] >= max(C[index],G[index],args.minCov):
+		elif T[index] >= max(C[index],G[index],minCov):
 			consensus+="T"
-		elif C[index] >= max(G[index],args.minCov):
+		elif C[index] >= max(G[index],minCov):
 			consensus+="C"
-		elif G[index] >= args.minCov:
+		elif G[index] >= minCov:
 			consensus+="G"
 		else:
 			consensus+="-"
@@ -218,13 +227,14 @@ else:
 
 	#TODO Reverse complement if strand minus 
 	if strand=='-':
-		consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=' '.join(args.name.split(" ")[-1])+" "+"NEWREGION",description="")
+		consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=args.name,description="")
 	else:
-		consensusRecord=SeqRecord(seq_consensus,id=' '.join(args.name.split(" ")[-1])+" "+"NEWREGION",description="")
+		consensusRecord=SeqRecord(seq_consensus,id=args.name,description="")
 
+	SeqIO.write(consensusRecord,'consensus.fa','fasta')
 	#TODO create a bait.fa for iterative mapping
 
-	#TODO name the baits and add this name to the NEWREGION !!!
+	#TODO name the baits and add this delimition to a bait.gff !!!
 
 # Create output directory structure and logs
 saveRoot(rootedDir)
