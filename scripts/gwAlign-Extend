@@ -16,7 +16,8 @@ parser.add_argument('-refs', metavar='/path', required=True, help="references to
 	"bam: path of the sorted and indexed bam file")
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-#parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
+parser.add_argument('-minCov', metavar='N', default='5', help="min coverage for a reference calling")
+parser.add_argument('-minCovVar', metavar='N', default='5', help="min coverage for a varaint calling")
 parser.add_argument('-read_only',action='store_true' , help="Only read a previous run of the software")
 args=parser.parse_args()
 
@@ -100,6 +101,7 @@ with open(args.refs,'r') as refFile:
 
 
 # step 1 - iterate over the aln File to compute consensus seq
+# TODO step 1bis - iterate over the a baits fastq database to compute iterated consensus seq
 if not args.read_only:
 	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 	cmdList=list()
@@ -139,7 +141,10 @@ if not args.read_only:
 			bam2consensusOpt={
 				'-outDir':consensusOutPut,
 				'-reference':refsFileName,
-				'-reg':regions
+				'-reg':regions,
+				'-minCov':args.minCov,
+				'-minCovVar':args.minCovVar,
+				'-name':name
 			}
 			cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
 			N+=1
@@ -154,6 +159,8 @@ if not args.read_only:
 		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
 
 # step 2 - iterate over the aln File to add consensus in outFile
+# TODO create bait_db.fa with bwa index with kgID and exon number information
+# TODO create a mapped.fastq and delete 
 fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 outAln=open(rootedDir.reports+'/algn_extended.fa','w')
 for fasta in fasta_sequences:
