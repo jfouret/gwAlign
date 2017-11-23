@@ -145,6 +145,10 @@ else:
 		for read in samfile[chosenSpec].fetch(region=refDict[chosenSpec]['reg'][:-1]): 
 			mapped.write(">%s\n%s\n+\n%s\n"  % (read.query_name, read.query_sequence, "".join(map(chr,[x + 33 for x in read.query_qualities]))))
 	samfile[chosenSpec].close()
+
+	open(rootedDir.results+'/'+chosenSpec+'/call.vcf', 'a').close()
+	open(rootedDir.results+'/'+chosenSpec+'/call.log', 'a').close()
+
 	## step 2.1 - Variant calling
 	#define options and positional args for software, considering PCR free # TODO put this in argument by default
 	PlatypusOpt={
