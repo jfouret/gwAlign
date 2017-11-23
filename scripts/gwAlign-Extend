@@ -163,6 +163,8 @@ if not args.read_only:
 # TODO create a mapped.fastq and delete 
 fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 outAln=open(rootedDir.reports+'/algn_extended.fa','w')
+outBait=open(rootedDir.reports+'/baits.fa','w') 
+outMapped=open(rootedDir.reports+'/mapped.fq','w')
 for fasta in fasta_sequences:
 	name, sequence = fasta.description, str(fasta.seq)
 	m=reIDhg19.match(name)
@@ -176,7 +178,7 @@ for fasta in fasta_sequences:
 		seqLen=max(pos)-min(pos)+1
 		consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(3)
 		while not os.path.exists(consensusOutPut+'/fileRooting.pkl'): # infinite loop if bug . . . (sol ? write an error file in error ? through def main: and main())
-			time.sleep(10)
+			time.sleep(1)
 			#print('WHILE='+name+"\n")
 			#print('CONS='+consensusOutPut+"\n")
 		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" mapped\n"
@@ -187,11 +189,17 @@ for fasta in fasta_sequences:
 			#	sys.stderr.write('ERROR SEQ SIZE for '+name)
 			#	sys.exit(1)
 		outAln.write(seq+"\n")
+		with open(consensusOutPut+'/results/bait.fa','r') as baitFile:
+			outBait.write(baitFile.read())
+		with open(consensusOutPut+'/results/mapped.fa','r') as mappedFile:
+			outBait.write(mappedFile.read())
+
 outAln.close()
+outBait.close()
+outMapped.close()
 
 # finish and saveRoot
 saveRoot(rootedDir)
 sys.exit(0)
-
 
 reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1})?$')

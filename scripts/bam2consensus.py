@@ -157,7 +157,7 @@ else:
 		'--filterReadsWithDistantMates':'0',
 		'--filterReadsWithUnmappedMates':'0',
 		'--coverageSamplingLevel':'50',
-		'--assemblyRegionSize':'200',
+		'--assemblyRegionSize':'800',
 		'--assemblerKmerSize':'115',
 		'--assembleBrokenPairs':'1',
 		'--assembleBadReads':'1',
@@ -168,13 +168,14 @@ else:
 		'--trimSoftClipped':'0',
 		'--trimOverlapping':'0',
 		'--trimAdapter':'0',
+		'--minReads':'1',
 		'--trimReadFlank':'0',
 		#'--maxVarDist':'1',
 		'--mergeClusteredVariants':'0',
 		'--minFlank':'0',
 		'--minMapQual':'0',
-		#'--minBaseQual':'0',
-		#'--minGoodQualBases':'0'
+		'--minBaseQual':'0',
+		'--minGoodQualBases':'0',
 		'--assemble':'1'
 		}
 
@@ -189,6 +190,8 @@ else:
 		variant[rec.pos]=dict()
 		variant[rec.pos]['ref']=rec.ref
 		variant[rec.pos]['alt']=rec.alts
+		if not isinstance(variant[rec.pos]['alt'], basestring):
+			variant[rec.pos]['alt']=variant[rec.pos]['alt'][0]
 		variant[rec.pos]['info']=rec.info
 		variant[rec.pos]['filter']=rec.filter.keys()
 		variant[rec.pos]['sample']=rec.samples[rec.samples.keys()[0]]
@@ -228,16 +231,15 @@ else:
 		#print("\n\n############START###########\n"+str(pos))
 		# Have a variant been called with sufficient coverage ?
 		if (pos in variant.keys()) and (variant[pos]["sample"]["NR"]>=minCovVar):
-			# if unique SNP with no variants
-			# print("--REF--")
-			# print(variant[pos]['ref'])
-			# print("--ALT--")
-			# print(variant[pos]['alt'])
-			if (len(variant[pos]['alt'][0]+variant[pos]['ref'])==2) and ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))) and (variant[pos]['alt'][0].upper() in ['A','T','C','G']) and (variant[pos]['ref'][0].upper() in ['A','T','C','G']) :
-				consensus+=iupacDict[(variant[pos]['ref'].upper()+variant[pos]['alt'][0]).upper()]
+			#if unique SNP with no variants
+			if (len(variant[pos]['alt']+variant[pos]['ref'])==2) and ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))) and (variant[pos]['alt'].upper() in ['A','T','C','G']) and (variant[pos]['ref'].upper() in ['A','T','C','G']) :
+				consensus+=iupacDict[(variant[pos]['ref'].upper()+variant[pos]['alt']).upper()]
 				pos+=1
+			elif not ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))):
+				consensus+=variant[pos]['alt']
+				pos+=len(variant[pos]['ref'])
 			else:
-				consensus+=variant[pos]['alt'][0]
+				consensus+=variant[pos]['ref']
 				pos+=len(variant[pos]['ref'])
 		elif coverage[index]>minCov:
 			consensus+=refSequence[index]
@@ -250,9 +252,7 @@ else:
 	bait_reg=contig_cons+":"+str(start_cons)+"-"+str(end_cons)+strand
 	bait=left.lower()+consensus.upper()+right.lower()
 	with open("bait.fa",'w') as baitFile:
-		baitFile.write(">"+args.name+"\n"+bait)
-	with open("bait.txt",'w') as baitFile:
-		baitFile.write(bait_reg)
+		baitFile.write(">"+args.name+" "+bait_reg+"\n"+bait+"\n")
 	#TODO Reverse complement if strand minus 
 	if strand=='-':
 		consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=args.name,description="")
