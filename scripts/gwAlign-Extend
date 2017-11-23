@@ -144,7 +144,7 @@ if not args.read_only:
 				'-reg':regions,
 				'-minCov':args.minCov,
 				'-minCovVar':args.minCovVar,
-				'-name':"'"+m.group(1)+m.group(2)+' exon'+m.group(4)+"'"
+				'-name':"'"+m.group(1)+m.group(2)+'_exon'+m.group(4)+"'"
 			}
 			cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
 			N+=1

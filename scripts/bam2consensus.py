@@ -94,44 +94,42 @@ for spec in refDict.keys():
 	contig,pos=reg[:-1].split(':')
 	pos=pos.split('-')
 	pos=[int(pos[0]),int(pos[1])]
-	start=pos[0]-1 # 0based inclusive
-	end=pos[1] # 0based exclusive
-	tA,tT,tC,tG=samfile[spec].count_coverage(contig=contig,start=start,stop=end)  #array.arrays
-	tA=np.array(tA)
-	tT=np.array(tT)
-	tC=np.array(tC)
-	tG=np.array(tG)
-	tcoverage=tA+tT+tC+tG
-	tYield=tcoverage.sum()
+	start=pos[0]-1 # 0-based inclusive
+	end=pos[1]     # 0-based exclusive
+	tcoverage=[]
+	for pos in range(start,end+1):
+		al=samfile[spec].fetch(contig=contig,start=pos-1,stop=pos)
+		cov=0
+		for read in al:
+			cov+=1
+		tcoverage.append(cov)
+	tYield=sum(tcoverage)
 	#print(spec)#debug
 	if chosenSpec==None:
 		chosenSpec=spec
 		Yield=tYield
-		A=tA
-		T=tT
-		C=tC
-		G=tG
 		coverage=tcoverage
 	elif tYield>Yield:
 		chosenSpec=spec
 		Yield=tYield
-		A=tA
-		T=tT
-		C=tC
-		G=tG
 		coverage=tcoverage
 	elif tYield==Yield:
 		if specOrder.index(chosenSpec)>specOrder.index(spec):
 			chosenSpec=spec
 			Yield=tYield
-			A=tA
-			T=tT
-			C=tC
-			G=tG
 			coverage=tcoverage
 for spec in refDict.keys():
 	if spec!=chosenSpec:
 		samfile[spec].close()
+
+reg=refDict[chosenSpec]['reg']
+contig,pos=reg[:-1].split(':')
+pos=pos.split('-')
+pos=[int(pos[0]),int(pos[1])]
+start=pos[0] # 1-based inclusive
+end=pos[1]     # 1-based inclusive
+
+
 
 ## step 2 - Variant calling and consensus
 
@@ -153,14 +151,31 @@ else:
 		'--regions':refDict[chosenSpec]['reg'][:-1], # [:-1] without strand information yet ...
 		'--refFile':refDict[chosenSpec]['fasta'],
 		'--bamFiles':refDict[chosenSpec]['bam'],
-		'--assemble':'1',
 		'--output':rootedDir.results+'/'+chosenSpec+'/call.vcf',
 		'--logFileName':rootedDir.results+'/'+chosenSpec+'/call.log',
 		'--filterReadPairsWithSmallInserts':'0',
 		'--filterReadsWithDistantMates':'0',
 		'--filterReadsWithUnmappedMates':'0',
 		'--coverageSamplingLevel':'50',
-		'--filterDuplicates':'0'
+		'--assemblyRegionSize':'200',
+		'--assemblerKmerSize':'115',
+		'--assembleBrokenPairs':'1',
+		'--assembleBadReads':'1',
+		'--assembleAll':'1',
+		'--filterDuplicates':'0',
+		'--maxVariants':"1",
+		'--filterVarsByCoverage':'1',
+		'--trimSoftClipped':'0',
+		'--trimOverlapping':'0',
+		'--trimAdapter':'0',
+		'--trimReadFlank':'0',
+		#'--maxVarDist':'1',
+		'--mergeClusteredVariants':'0',
+		'--minFlank':'0',
+		'--minMapQual':'0',
+		#'--minBaseQual':'0',
+		#'--minGoodQualBases':'0'
+		'--assemble':'1'
 		}
 
 	submitOneShell(platypus.create(options=PlatypusOpt,subprogram='callVariants'))
@@ -191,6 +206,7 @@ else:
 	# Get left and right sequences to perform iteration
 	fastaFile=pysam.FastaFile(refDict[chosenSpec]['fasta'])
 	contig_length=fastaFile.get_reference_length(contig)
+
 	if start!=1:
 		left=fastaFile.fetch(region=contig+":"+str(max(1,start-200))+"-"+str(start-1))
 	else:
@@ -199,32 +215,44 @@ else:
 		right=fastaFile.fetch(region=contig+":"+str(end+1)+"-"+str(min(contig_length,end+200)))
 	else:
 		right=''
+	refSequence=fastaFile.fetch(region=contig+":"+str(start)+"-"+str(end))
 	fastaFile.close()
-
+	start_cons=min(start,200)
+	end_cons=min(start,200)+end-start
+	contig_cons=args.name
 	# code to get consensus
 	consensus=""
-	for pos in range(start,1+end):
+	pos=start
+	while pos <= end:
 		index=pos-start
+		#print("\n\n############START###########\n"+str(pos))
 		# Have a variant been called with sufficient coverage ?
 		if (pos in variant.keys()) and (variant[pos]["sample"]["NR"]>=minCovVar):
 			# if unique SNP with no variants
-			if (len(variant[pos]['alt'][0]+variant[pos]['ref'][0])==2) and ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))) and (variant[pos]['alt'][0]!='.'):
-				consensus+=iupacDict[(variant[pos]['ref'][0]+variant[pos]['alt'][0]).upper()]
+			# print("--REF--")
+			# print(variant[pos]['ref'])
+			# print("--ALT--")
+			# print(variant[pos]['alt'])
+			if (len(variant[pos]['alt'][0]+variant[pos]['ref'])==2) and ((variant[pos]["sample"]["GT"]!= (0,1)) or (variant[pos]["sample"]["GT"]!= (1,0))) and (variant[pos]['alt'][0].upper() in ['A','T','C','G']) and (variant[pos]['ref'][0].upper() in ['A','T','C','G']) :
+				consensus+=iupacDict[(variant[pos]['ref'].upper()+variant[pos]['alt'][0]).upper()]
+				pos+=1
 			else:
 				consensus+=variant[pos]['alt'][0]
-		elif A[index] >= max(T[index],C[index],G[index],minCov):
-			consensus+="A"
-		elif T[index] >= max(C[index],G[index],minCov):
-			consensus+="T"
-		elif C[index] >= max(G[index],minCov):
-			consensus+="C"
-		elif G[index] >= minCov:
-			consensus+="G"
-		else:
+				pos+=len(variant[pos]['ref'])
+		elif coverage[index]>minCov:
+			consensus+=refSequence[index]
+			pos+=1
+		else : 
 			consensus+="-"
+			pos+=1
 
 	seq_consensus=Seq(consensus,ambiguous_dna)
-
+	bait_reg=contig_cons+":"+str(start_cons)+"-"+str(end_cons)+strand
+	bait=left.lower()+consensus.upper()+right.lower()
+	with open("bait.fa",'w') as baitFile:
+		baitFile.write(">"+args.name+"\n"+bait)
+	with open("bait.txt",'w') as baitFile:
+		baitFile.write(bait_reg)
 	#TODO Reverse complement if strand minus 
 	if strand=='-':
 		consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=args.name,description="")
@@ -232,9 +260,6 @@ else:
 		consensusRecord=SeqRecord(seq_consensus,id=args.name,description="")
 
 	SeqIO.write(consensusRecord,'consensus.fa','fasta')
-	#TODO create a bait.fa for iterative mapping
-
-	#TODO name the baits and add this delimition to a bait.gff !!!
 
 # Create output directory structure and logs
 saveRoot(rootedDir)
