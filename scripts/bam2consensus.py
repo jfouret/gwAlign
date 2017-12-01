@@ -159,7 +159,7 @@ else:
 		'--coverageSamplingLevel':'50',
 		'--assemblyRegionSize':'800',
 		'--assemblerKmerSize':'115',
-		'--assembleBrokenPairs':'0',
+		'--assembleBrokenPairs':'1',
 		'--assembleBadReads':'1',
 		'--assembleAll':'1',
 		'--filterDuplicates':'0',
