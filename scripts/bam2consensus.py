@@ -39,7 +39,7 @@ rootedDir=RootDir(args.outDir)
 rootedDir.logs.writeArgs(args)
 
 # Definition of used software
-platypus=Command("python /export/source/archive/Platypus_0.8.1/Platypus.py",'echo "(see program log)"')
+platypus=Command("python /export/source/git/Platypus/bin/Platypus.py",'echo "(see program log)"')
 platypus.log()
 
 minCov=int(args.minCov)
@@ -98,7 +98,7 @@ for spec in refDict.keys():
 	end=pos[1]     # 0-based exclusive
 	tcoverage=[]
 	for pos in range(start,end+1):
-		al=samfile[spec].fetch(contig=contig,start=pos-1,stop=pos)
+		al=samfile[spec].fetch(contig=contig,start=start,stop=end)
 		cov=0
 		for read in al:
 			cov+=1
@@ -159,7 +159,7 @@ else:
 		'--coverageSamplingLevel':'50',
 		'--assemblyRegionSize':'800',
 		'--assemblerKmerSize':'115',
-		'--assembleBrokenPairs':'1',
+		'--assembleBrokenPairs':'0',
 		'--assembleBadReads':'1',
 		'--assembleAll':'1',
 		'--filterDuplicates':'0',
