@@ -36,7 +36,7 @@ from jupype import *
 
 # Create output directory structure and logs
 rootedDir=RootDir(args.outDir)
-rootedDir.logs.writeArgs(args)
+rootedDir.logs.writeArgs(args,version)
 
 # Definition of used software
 platypus=Command("python /export/source/git/Platypus/bin/Platypus.py",'echo "(see program log)"')
@@ -159,7 +159,7 @@ else:
 		'--coverageSamplingLevel':'50',
 		'--assemblyRegionSize':'800',
 		'--assemblerKmerSize':'115',
-		'--assembleBrokenPairs':'1',
+		'--assembleBrokenPairs':'0',
 		'--assembleBadReads':'1',
 		'--assembleAll':'1',
 		'--filterDuplicates':'0',
