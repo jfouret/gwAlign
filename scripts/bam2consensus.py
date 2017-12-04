@@ -98,7 +98,11 @@ for spec in refDict.keys():
 	end=pos[1]     # 0-based exclusive
 	tcoverage=[]
 	for pos in range(start,end+1):
-		al=samfile[spec].fetch(contig=contig,start=start,stop=end)
+		try:
+			al=samfile[spec].fetch(contig=contig,start=start,stop=end)
+		except Exception, e:
+			sys.stderr.write("#ERROR processing path:"+rootedDir.absPath+"\n")
+			raise e
 		cov=0
 		for read in al:
 			cov+=1
