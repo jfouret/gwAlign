@@ -191,9 +191,11 @@ for fasta in fasta_sequences:
 		outAln.write(seq+"\n")
 		with open(consensusOutPut+'/results/bait.fa','r') as baitFile:
 			outBait.write(baitFile.read())
-		with open(consensusOutPut+'/results/mapped.fq','r') as mappedFile:
-			outBait.write(mappedFile.read())
-
+		try:
+			with open(consensusOutPut+'/results/mapped.fq','r') as mappedFile:
+				outMapped.write(mappedFile.read())
+		except IOError e:
+			pass
 outAln.close()
 outBait.close()
 outMapped.close()

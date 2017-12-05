@@ -139,8 +139,10 @@ end=pos[1]     # 1-based inclusive
 
 if Yield==0:
 	## step 2.1 - create empty consensus if no yield
-	with open(rootedDir.results+'/consensus.fa','w') as csFile:
-		csFile.write("consensus\n---"+"\n")
+	seq_consensus=Seq("---",ambiguous_dna)
+	bait_reg=""
+	bait="---"
+	strand='+'
 else:
 
 	mkdirp(chosenSpec)
@@ -255,15 +257,15 @@ else:
 	seq_consensus=Seq(consensus,ambiguous_dna)
 	bait_reg=contig_cons+":"+str(start_cons)+"-"+str(end_cons)+strand
 	bait=left.lower()+consensus.upper()+right.lower()
-	with open("bait.fa",'w') as baitFile:
-		baitFile.write(">"+args.name+" "+bait_reg+"\n"+bait+"\n")
-	#TODO Reverse complement if strand minus 
-	if strand=='-':
-		consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=args.name,description="")
-	else:
-		consensusRecord=SeqRecord(seq_consensus,id=args.name,description="")
 
-	SeqIO.write(consensusRecord,'consensus.fa','fasta')
+with open("bait.fa",'w') as baitFile:
+	baitFile.write(">"+args.name+" "+bait_reg+"\n"+bait+"\n")
+#TODO Reverse complement if strand minus 
+if strand=='+':
+	consensusRecord=SeqRecord(seq_consensus,id=args.name,description="")
+else:
+	consensusRecord=SeqRecord(seq_consensus.reverse_complement(),id=args.name,description="")
+SeqIO.write(consensusRecord,'consensus.fa','fasta')
 
 # Create output directory structure and logs
 saveRoot(rootedDir)
