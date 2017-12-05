@@ -186,15 +186,15 @@ for fasta in fasta_sequences:
 		with open(consensusOutPut+'/results/consensus.fa','r') as consensusFile:
 			seq=''.join(consensusFile.readlines()[1:]).replace("\n",'')
 			#if len(seq)!=seqLen:
-			#	sys.stderr.write('ERROR SEQ SIZE for '+name)
-			#	sys.exit(1)
+			#sys.stderr.write('ERROR SEQ SIZE for '+name)
+			#sys.exit(1)
 		outAln.write(seq+"\n")
 		with open(consensusOutPut+'/results/bait.fa','r') as baitFile:
 			outBait.write(baitFile.read())
 		try:
 			with open(consensusOutPut+'/results/mapped.fq','r') as mappedFile:
 				outMapped.write(mappedFile.read())
-		except IOError e:
+		except IOError:
 			pass
 outAln.close()
 outBait.close()
