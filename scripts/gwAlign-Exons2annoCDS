@@ -251,13 +251,14 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 	for key in kgPathDict.keys():
 		optAlign={
 			'-gene_dir':kgPathDict[key],
-			'-ref':args.ref,
-			'-only_size':'' # TODO TEMP
+			'-ref':args.ref#,
+			#'-only_size':'' # TODO TEMP
 		}
 		cmdList.append(alignCDS.create(kgPathDict[key],optAlign))
 		serialBatch.add(cmdList)
 		cmdList=list()
 	serialBatch.finish()
+# add elif to re-alignBigCDS with reporting ...
 elif 'phase_filter' in modeList:
 	phaseBlocks=Command('phasingBlocks.py','bin')
 	cmdList=list()

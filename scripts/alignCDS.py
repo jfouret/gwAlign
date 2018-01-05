@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Compute a codon-based alignment wi
 parser.add_argument('-gene_dir', metavar='/path', required=True, help="Folder correspoding to the gene ID with all species subdirectories")
 parser.add_argument('-ref', metavar='ref_species' , required=False, help="name of the reference specie",default='hg19')
 parser.add_argument('-macse', metavar='.jar' , required=False, help="jar file path for macse program",default='SEDMATCHMACSE')
-parser.add_argument('-only_size' , action='store_true', help="option for debug..")
+parser.add_argument('-only_size' , action='store_true', help="option for debug...")
 parser.add_argument('-boost_mem' , action='store_true', help="allow 500 Go of memmory")
 
 args=parser.parse_args()
