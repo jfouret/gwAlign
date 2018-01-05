@@ -41,16 +41,22 @@ bin :
 	chmod 755 bin
 
 .PHONY : install
-install : $(bins)
+install : 
 	ln -s ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
 	ln -s ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
 	ln -s ${GITREPO}/bin/KeggGo.py ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/phasingBlocks.py ${INSTALLPATH}
 
 .PHONY : force_install
 force_install : $(bins)
 	ln -sf ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
 	ln -sf ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
 	ln -sf ${GITREPO}/bin/KeggGo.py ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/phasingBlocks.py ${INSTALLPATH}
 
 .PHONY : uninstall
 uninstall : 

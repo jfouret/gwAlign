@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import argparse
-gitRepository='SEDMATCHGITREPO'
 version='SEDMATCHGITVERSION'
 year=2017
-author='Julien Fouret'
+author='Julien FOURET'
 contact='julien@fouret.me'
 
 parser = argparse.ArgumentParser(description='Retrive consensus sequence of a given region based on a sorted bam file',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -16,10 +15,6 @@ parser.add_argument('-reg', metavar='chr:start-end+,chr:start-end-,...', require
 parser.add_argument('-minCov', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-minCovVar', metavar='N', required=True, help="min coverage for base calling")
 parser.add_argument('-name', metavar='STR', required=True, help="name fo consensus")
-#parser.add_argument('-pval', metavar='N', required=True, help="pval to call the alternative base (H0: reference)")
-#parser.add_argument('-gatk', metavar='/path', required=False, help="gatk jar path",default='SEDMATCHGATK')
-#parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-#parser.add_argument('-graphCov', action='store_true', help="Graph the coverage")
 
 args=parser.parse_args()
 
@@ -32,15 +27,14 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet.IUPAC import ambiguous_dna
-from jupype import *
+from upype import *
 
 # Create output directory structure and logs
 rootedDir=RootDir(args.outDir)
 rootedDir.logs.writeArgs(args,version)
 
 # Definition of used software
-platypus=Command("python /export/source/git/Platypus/bin/Platypus.py",'echo "(see program log)"')
-platypus.log()
+platypus=Command("Platypus.py")
 
 minCov=int(args.minCov)
 minCovVar=int(args.minCovVar)
@@ -97,9 +91,12 @@ for spec in refDict.keys():
 	start=pos[0]-1 # 0-based inclusive
 	end=pos[1]     # 0-based exclusive
 	tcoverage=[]
+	#print("#INFO inspecting bam region "+refDict[spec]['reg']+" for "+spec+" species")
+	#print("#INFO looking from pos "+str(start)+" 0-based inclusive to "+str(end)+" 0-based exlcusive")
 	for pos in range(start,end+1):
+		#print("#INFO looking at pos "+str(pos)+"(0-based) or "+str(pos+1)+"(1-based)")
 		try:
-			al=samfile[spec].fetch(contig=contig,start=start,stop=end)
+			al=samfile[spec].fetch(contig=contig,start=pos,stop=pos+1)
 		except Exception, e:
 			sys.stderr.write("#ERROR processing path:"+rootedDir.absPath+"\n")
 			raise e
@@ -107,6 +104,7 @@ for spec in refDict.keys():
 		for read in al:
 			cov+=1
 		tcoverage.append(cov)
+		#print("#INFO value="+str(cov))
 	tYield=sum(tcoverage)
 	#print(spec)#debug
 	if chosenSpec==None:
@@ -185,7 +183,7 @@ else:
 		'--assemble':'1'
 		}
 
-	submitOneShell(platypus.create(options=PlatypusOpt,subprogram='callVariants'))
+	submit(platypus.create(options=PlatypusOpt,subprogram='callVariants'))
 
 	#read the vcf file
 
@@ -232,8 +230,10 @@ else:
 	# code to get consensus
 	consensus=""
 	pos=start
+	#print("INFO coverage length:"+str(len(coverage)))
 	while pos <= end:
 		index=pos-start
+		#print("#i:#"+str(index)+"#pos:#"+str(pos)+"#value:#"+str(coverage[index]))
 		#print("\n\n############START###########\n"+str(pos))
 		# Have a variant been called with sufficient coverage ?
 		if (pos in variant.keys()) and (variant[pos]["sample"]["NR"]>=minCovVar):

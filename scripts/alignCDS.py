@@ -85,7 +85,7 @@ for species in speciesExons.keys():
 			if len(specSeq)<10*refExLen[i]:
 				speciesCDS[species]+=speciesExons[species][i][j]
 			else:
-				sys.stderr.write("Waring 'Exon "+str(i)+" too long for "+species+"' at : "+args.gene_dir+"\n")
+				sys.stderr.write("Warning 'Exon "+str(i)+" too long for "+species+"' at : "+args.gene_dir+"\n")
 				do_align=True
 
 
@@ -102,15 +102,15 @@ with open('exons.pos','w') as exPos:
 		repeat=str(ExNum)+"\n"
 		exPos.write(repeat*refExLen[ExNum])
 if args.boost_mem:
-	command='java -Xmx500g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
+	command='java -Xmx500g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
 else:
-	command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))
+	command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
 
 if do_align:
 	alnProc=submitOneShell(command)
 	if alnProc['err']!='':
 		with open ('error.txt','a') as errFile:
 			errFile.write(alnProc['err'])
-			sys.stderr.write('Error with alignments alignment at : '+args.gene_dir+"\n")
+			sys.stderr.write('Error with alignments; details : '+args.gene_dir+"/error.txt\n")
 
 

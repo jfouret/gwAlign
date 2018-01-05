@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-gitRepository='SEDMATCHGITREPO'
 version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
@@ -17,8 +16,11 @@ parser.add_argument('-refs', metavar='/path', required=True, help="references to
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
 parser.add_argument('-minCov', metavar='N', default='5', help="min coverage for a reference calling")
+parser.add_argument('-batchLim', metavar='N', default='180', help="Number of operation for one batch job")
 parser.add_argument('-minCovVar', metavar='N', default='5', help="min coverage for a varaint calling")
 parser.add_argument('-read_only',action='store_true' , help="Only read a previous run of the software")
+parser.add_argument('-v',action='store_true' , help="verbose for debug pupose")
+
 args=parser.parse_args()
 
 # Import libraries
@@ -26,22 +28,17 @@ import sys
 import os
 import re
 import time
-from jupype import *
+from upype import *
 from Bio import SeqIO
 from Bio.Seq import Seq
 
 # Create output directory structure and logs
-rootedDir=RootDir(args.outDir,pbs=True)
-rootedDir.logs.writeArgs(args)
+rootedDir=RootDir(args.outDir,batch=True)
+rootedDir.logs.writeArgs(args,version)
 
 # definition of used software
-samtools=Command('samtools',min='1.3')
-samtools.versionCtrl()
-samtools.log()
-java=Command('java')
-java.log()
-bam2consensus=gitCommand(Git(gitRepository),'bam2consensus.py','bin')
-bam2consensus.log()
+
+bam2consensus=Command('bam2consensus.py')
 
 #Getting absolute path
 alnFileName=os.path.abspath(args.aln)
@@ -58,10 +55,7 @@ reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-
 reIDhg19=re.compile('^(uc\w*)(\.\d*)_hg19_(\d*)_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 
 # configure batch
-Nlim=180
-N=0
-iterBatch=1
-index=0
+Nlim=int(args.batchLim)
 
 # extract info from refFile
 refDict=dict() # stock the regions + strands for each specie 
@@ -95,29 +89,20 @@ with open(args.refs,'r') as refFile:
 			if not os.path.isfile(faiRef):
 				faiPos=[fasta]
 				submitOneShell(samtools.create(positionals=faiPos,subprogram='faidx'))
-
 			#TODO check if spec names are corect(matching those in the multi aln file)
 			#TODO check the presence of hg19
-
 
 # step 1 - iterate over the aln File to compute consensus seq
 # TODO step 1bis - iterate over the a baits fastq database to compute iterated consensus seq
 if not args.read_only:
 	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
-	cmdList=list()
+	serialBatch=serializer("gwAlign_Batch",Nlim,queue=args.queue,ncpus='1',workdir=rootedDir.results)
 	NbSpec=0 # 0 species matched yet
 	NbSpecLim=len(refDict.keys()) # number of species to match before to start searching consensus
-
 	for fasta in fasta_sequences:
 		name, sequence = fasta.description, str(fasta.seq)
 		m=reID.match(name)
-		#time.sleep(0.05)#debug
-		#print(name)#debug
-		#print(m.group(3))#debug
-		#consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
-		#if not 
 		if m and (m.group(3) in refDict.keys()):
-			#print('GO==>'+name)#debug
 			if m.group(9)==None:
 				region=''
 			else:
@@ -125,18 +110,11 @@ if not args.read_only:
 			refDict[m.group(3)]=region
 			NbSpec+=1
 		if NbSpec==NbSpecLim:
-			#print('JUMP')#debug
-			#print('refDict')#debug
-			#print(refDict)#debug
-			#print('specOrder')#debug
-			#print(specOrder)#debug
 			NbSpec=0
 			consensusOutPut=rootedDir.results+'/'+m.group(1)+m.group(2)+'/exon'+m.group(4)
 			regionOrdList=list()
 			for spec in specOrder:
 				regionOrdList.append(refDict[spec])
-			#print('regionOrdList')#debug
-			#print(regionOrdList)#debug
 			regions=','.join(regionOrdList)# regions != region
 			bam2consensusOpt={
 				'-outDir':consensusOutPut,
@@ -146,17 +124,8 @@ if not args.read_only:
 				'-minCovVar':args.minCovVar,
 				'-name':"'"+m.group(1)+m.group(2)+'_exon'+m.group(4)+"'"
 			}
-			cmdList.append(bam2consensus.create(wd=rootedDir.results,options=bam2consensusOpt))
-			N+=1
-			if N==Nlim:
-				N=0
-				batchName='gwAlign_Batch_'+str(iterBatch)
-				submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
-				cmdList=list()
-				iterBatch+=1
-	if N!=0:
-		batchName='gwAlign_Batch_'+str(iterBatch)
-		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=rootedDir.results))
+			serialBatch.add(bam2consensus.create(options=bam2consensusOpt))
+	serialBatch.finish()
 
 # step 2 - iterate over the aln File to add consensus in outFile
 # TODO create bait_db.fa with bwa index with kgID and exon number information
@@ -180,7 +149,8 @@ for fasta in fasta_sequences:
 		while not os.path.exists(consensusOutPut+'/fileRooting.pkl'): # infinite loop if bug . . . (sol ? write an error file in error ? through def main: and main())
 			time.sleep(1)
 			#print('WHILE='+name+"\n")
-			#print('CONS='+consensusOutPut+"\n")
+			if args.v : 
+				print('CONS='+consensusOutPut+"\n")
 		header='>'+m.group(1)+m.group(2)+'_'+args.spec+'_'+m.group(3)+'_'+m.group(4)+' '+m.group(5)+' '+m.group(6)+' '+m.group(7)+' '+" mapped\n"
 		outAln.write(header)
 		with open(consensusOutPut+'/results/consensus.fa','r') as consensusFile:
