@@ -11,8 +11,7 @@ parser = argparse.ArgumentParser(description='Compute a codon-based alignment wi
 parser.add_argument('-gene_dir', metavar='/path', required=True, help="Folder correspoding to the gene ID with all species subdirectories")
 parser.add_argument('-ref', metavar='ref_species' , required=False, help="name of the reference specie",default='hg19')
 parser.add_argument('-macse', metavar='.jar' , required=False, help="jar file path for macse program",default='SEDMATCHMACSE')
-parser.add_argument('-only_size' , action='store_true', help="option for debug...")
-parser.add_argument('-boost_mem' , action='store_true', help="allow 500 Go of memmory")
+parser.add_argument('-virt_mem' , action='store_true', help="allow  Go of memmory")
 
 args=parser.parse_args()
 
@@ -37,19 +36,41 @@ def submitOneShell(cmdString):
 	out,err=child.communicate() 
 	return {'out':out,'err':err} 
 
-if args.only_size:
-	do_align=False
-else:
-	do_align=True
-
 speciesList=os.walk(args.gene_dir).next()[1]
 os.chdir(args.gene_dir)
 speciesExons=dict()
 reName=re.compile('exon_(\d+)_ext(\d+)')
 reNameAlt=re.compile('exon_(\d+)')
 refExLen=dict()
+
+###########################################
+###### Description of gene directory ######
+#
+#./[speciesDirectories]/ 
+#
+#	[speciesN]/
+#		cds.fa contains all cds with the following \
+#pattern for seq id: exon_(\d+)_ext(\d+)  OR exon_(\d+)    \
+#Indeed an initial exon in human can be disrupted in       \
+#several parts in another, either because of re-arrangment \
+#either resulting from a mis-assembly
+#		missingExon[Number]/cds.fa contains the    \
+#same pattern for id but a empty sequence '---'. No        \
+#coordinates were given in the input file
+#		rearrangedExon[number]/cds.fa contains the \
+#same pattern for id but the regions coordinates was not   \
+#consistent (end<start) so the fasta contains sequence from\
+# the input file
+#
+#	ref.fa To be created the CDS from the reference    \
+#sequence.
+#	aligned.fa To be created the CDSs from all other   \
+#species that have been aligned to the reference either at \
+#genomic level or at reads sequencing level.
+#
+
 for species in speciesList:
-	speciesExons[species]=dict()
+	speciesExons[species]=dict() # Dict to with exon number as key 
 	cdsFileList=glob.glob(species+'/cds.fa')+glob.glob(species+'/*/cds.fa')
 	for cdsFile in cdsFileList:
 		fasta_sequences = SeqIO.parse(open(cdsFile),'fasta')
@@ -75,6 +96,7 @@ for species in speciesList:
 					if species==args.ref:
 						refExLen[exNum]=len(sequence)
 
+
 speciesCDS=dict()
 for species in speciesExons.keys():
 	for i in range(1,1+len(speciesExons[species])):
@@ -85,6 +107,7 @@ for species in speciesExons.keys():
 			if len(specSeq)<10*refExLen[i]:
 				speciesCDS[species]+=speciesExons[species][i][j]
 			else:
+				# Warning if the exon is 10 times more long ! 
 				sys.stderr.write("Warning 'Exon "+str(i)+" too long for "+species+"' at : "+args.gene_dir+"\n")
 				do_align=True
 
@@ -101,16 +124,14 @@ with open('exons.pos','w') as exPos:
 	for ExNum in range(1,1+len(refExLen)):
 		repeat=str(ExNum)+"\n"
 		exPos.write(repeat*refExLen[ExNum])
-if args.boost_mem:
-	command='java -Xmx500g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
-else:
-	command='java -Xmx20g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
 
-if do_align:
-	alnProc=submitOneShell(command)
-	if alnProc['err']!='':
-		with open ('error.txt','a') as errFile:
-			errFile.write(alnProc['err'])
-			sys.stderr.write('Error with alignments; details : '+args.gene_dir+"/error.txt\n")
+command='java -Xmx'+args.virt_mem+'g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
+
+alnProc=submitOneShell(command)
+#TODO relaunch automatically with boosted virt_mem ! 
+if alnProc['err']!='':
+	with open ('error.txt','a') as errFile:
+		errFile.write(alnProc['err'])
+		sys.stderr.write('Error with alignments; details : '+args.gene_dir+"/error.txt\n")
 
 

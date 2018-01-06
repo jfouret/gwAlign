@@ -217,7 +217,7 @@ if 'getCDS' in modeList:
 						cmdList.append('cat '+specDict[key].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict '+oldRegFileName+'.tmp'+' > '+oldRegFileName+' ; rm '+oldRegFileName+'.tmp')
 						cmdList.append(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
 						cmdList.append('rm '+oldRegFileName)
-				if args.v: print("Go ==> "+oldkgID)
+				if args.v: print("#INFO: Getting CDS of "+oldkgID)
 				serialBatch.add(cmdList)
 				cmdList=list()
 				oldkgID=kgID
@@ -236,7 +236,8 @@ if 'getCDS' in modeList:
 					chromosome,positions=region.split(':')
 					start,end=positions[:-1].split('-')
 					strand=positions[-1]
-					if int(start)>int(end):
+					if int(start)>int(end): # In case of complex regions no time is available for me to deal corretly with that so for now the sequence from ucsc is trusted... meaning that some insertion might be missed !
+						#TODO deal better with those complex regions...
 						mkdirp(kgPathDict[kgID]+'/'+spec+'/rearrangedExon'+m.group(4)+'_ext'+str(numExt))
 						cmdList.append('echo ">'+'exon_'+m.group(4)+'_ext'+str(numExt)+"\n"+sequence+'" >>'+kgPathDict[kgID]+'/'+spec+'/rearrangedExon'+m.group(4)+'_ext'+str(numExt)+'/cds.fa')
 					else:
