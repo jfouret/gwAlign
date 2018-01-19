@@ -12,10 +12,10 @@ parser.add_argument('-mode', metavar='create,annotate,getCDS,align', required=Tr
 parser.add_argument('-v',action='store_true', help="verbose")
 parser.add_argument('-debug',action='store_true', help="verbose")
 parser.add_argument('-batchLim', metavar='N', default='10', help="Number of operation for one batch job")
+parser.add_argument('-mems', metavar='low_mem,res_mem,high_mem', default='10,3,256', help="Precise memory config in GB for alignments; low_mem is the basic parameter to use first for alignments, jobs will reserve res_mem of memory and high mem is the amount of memory to be used the first alignment is failed")
 parser.add_argument('-spec', metavar='Species file' , required=False, help="tab separated file with all assembly name and assembly path (with .dict and .fai)")
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
-parser.add_argument('-db',metavar='Database', required=False, help="name of the database 'ncbi' or 'ucsc'",default='ucsc',choices=['ucsc','ncbi'])
 parser.add_argument('-ref', metavar='ref species', required=False, help="reference species for multiple alignment",default='hg19')
 parser.add_argument('-phase_filter', metavar='config file', required=False, help="",default='')
 parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
@@ -49,13 +49,15 @@ def writedb(query,file_name,header):
 	tab_file.close()
 	cursor.close()
 def Get_annotation(ID):
+	"""
+	@summary: Take a kgID as input to search the ucsc database for name, cross reference ids and functional information for KEGG and GO annotation spaces. All information are written in other files.
+	@param ID: a kgID, kg stand for knowGene
+	@type ID: str  
+	"""
 	global args
 	global iterNoName
 	global allSymbol
-	if args.db=='ucsc':
-		field='kgID'
-	elif args.db=='ncbi':
-		field='refseq'
+	field='kgID'
 	#global ID_type
 	query_where='WHERE (ref.'+field+'="'+ID+'");'
 	query_name=['SELECT hgnc.symbol,ref.kgID,ref.spID,ref.refseq,ref.geneSymbol']
@@ -161,7 +163,27 @@ else:
 			kgPathDict[key]=value
 
 # get CDS
-#Same as annotate but picardtools and batching ...
+#########################
+###### Explanation ######
+# All this workflow is based on a file from ucsc which contains all sequences matching any hg19 knowngene \
+# However this file has a major problem:  no gap have been considered in hg19 sequences. Meaning that     \
+# only deletion are considered in other species and insertion are not reported in this files.
+# Fortunately there is one fasta entry per exon per species and the entry name gives the genomic location \
+# of the each exon is the corresponding species' genome. 
+# The next lines of codes focuses on parsing this files for genomic coordinates aiming at using Picard    \ 
+# to extract sequences from the genomes.
+#
+# In addition to this first issue, 5 cases are possible with those coordinates
+# 	1- The coordinates are complete, fragmented or not, and consistent meaning that start<end thus        \
+# 	those locations are appended to a bed file that will finally used to produce a cds.fa file.
+# 	2- The coordinates are missing then a folder is created with '---' sequence in a cds.fa file
+# 	3- The coordinates are not consistent. start>end ... well I suppose the outer sequences should be     \
+# 	considered. Due to lack of time this feature has not been implemented yet and original sequences are  \
+# 	added in a cds.fa file (with potential insertions missing...)
+# 	4- The species is te reference (hg19) thus original sequences from input file have been used
+# 	5- In place of the genomic location the mention "mapped" is present. This means that exons have been  \
+# 	assembled using mapping then platypus thus orginals sequences have been used.
+
 if 'getCDS' in modeList:
 	alnFileName=os.path.abspath(args.al)
 	specDict=dict()
@@ -172,9 +194,10 @@ if 'getCDS' in modeList:
 					print('##Parsing species## '+line)
 				specie,assembly=line.rstrip().split("\t")
 				specDict[specie]=assembly
-	java=Command('java -XX:ParallelGCThreads=1','java -version 2>&1 | xargs')
-	picard_cmd=java.create(options={'-jar':args.picard})
-	picard=Command(picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
+	rootedDir.addCommand('java','java -XX:ParallelGCThreads=1','java -version 2>&1 | xargs')
+
+	picard_cmd=rootedDir.getCommand("java",options={'-jar':args.picard})
+	rootedDir.addCommand("picard",picard_cmd,picard_cmd+' CheckFingerprint --version 2>&1 | sed \'s/(.*$//g\'')
 	reID=re.compile('^(uc\w*)(\.\d*)_(\w*)_(\d*)_(\d*) (\d*) (\d*) (\d*)\s*(\w+.*)?$')
 	fasta_sequences = SeqIO.parse(open(alnFileName),'fasta')
 
@@ -182,7 +205,7 @@ if 'getCDS' in modeList:
 	iterBatch=1
 	Nlim=int(args.batchLim)
 
-	serialBatch=serializer("gwAlign_getCDS",Nlim,queue=args.queue,ncpus='1',mem="6gb",workdir=rootedDir.results,verbose=args.v)
+	serialBatch=rootedDir.addSerializer("gwAlign_getCDS",Nlim,queue=args.queue,ncpus='1',mem="6gb",workdir=rootedDir.results,verbose=args.v)
 
 	init=True
 
@@ -215,10 +238,10 @@ if 'getCDS' in modeList:
 							'QUIET':'true'
 						}
 						cmdList.append('cat '+specDict[key].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict '+oldRegFileName+'.tmp'+' > '+oldRegFileName+' ; rm '+oldRegFileName+'.tmp')
-						cmdList.append(picard.create(options=getRefOpt,subprogram='ExtractSequences',sep='='))
+						cmdList.append(rootedDir.getCommand("picard",options=getRefOpt,subprogram='ExtractSequences',sep='='))
 						cmdList.append('rm '+oldRegFileName)
 				if args.v: print("#INFO: Getting CDS of "+oldkgID)
-				serialBatch.add(cmdList)
+				rootedDir.serialize("gwAlign_getCDS",cmdList)
 				cmdList=list()
 				oldkgID=kgID
 			mkdirp(kgPathDict[kgID]+'/'+spec)
@@ -243,28 +266,32 @@ if 'getCDS' in modeList:
 					else:
 						with open(regFileName+'.tmp','a') as regFile:
 							regFile.write("\t".join([chromosome,start,end,strand,'exon_'+m.group(4)+'_ext'+str(numExt)])+"\n")
-	serialBatch.finish()
+	rootedDir.finishSerializer("gwAlign_getCDS")
+
+
 elif 'align' in modeList : # no align just after getCDS. need time to finish
+	low_mem,res_mem,high_mem=args.mems.split(",")
 	Nlim=int(args.batchLim)
-	alignCDS=Command('alignCDS.py')
+	rootedDir.addCommand("alignCDS",'alignCDS.py')
 	cmdList=list()
-	serialBatch=serializer("gwAlign_alignCDS",Nlim,queue=args.queue,ncpus='1',mem="10gb",workdir=rootedDir.results)
+	serialBatch=rootedDir.addSerializer("gwAlign_alignCDS",Nlim,queue=args.queue,ncpus='1',mem=res_mem+"g",workdir=rootedDir.results)
 	for key in kgPathDict.keys():
 		optAlign={
 			'-gene_dir':kgPathDict[key],
-			'-ref':args.ref#,
-			#'-only_size':'' # TODO TEMP
+			'-ref':args.ref,
+			'-virt_mem':low_mem,
+			'-boost_mem':high_mem
 		}
-		cmdList.append(alignCDS.create(kgPathDict[key],optAlign))
-		serialBatch.add(cmdList)
+		cmdList.append(rootedDir.getCommand("alignCDS",kgPathDict[key],optAlign))
+		rootedDir.serialize("gwAlign_alignCDS",cmdList)
 		cmdList=list()
-	serialBatch.finish()
+	rootedDir.finishSerializer("gwAlign_alignCDS")
 # add elif to re-alignBigCDS with reporting ...
 elif 'phase_filter' in modeList:
-	phaseBlocks=Command('phasingBlocks.py','bin')
+	phaseBlocks=rootedDir.addCommand('phaseBlocks','phasingBlocks.py','bin')
 	cmdList=list()
 	Nlim=int(args.batchLim)
-	serialBatch=serializer("gwAlign_PhaseFilter",Nlim,queue=args.queue,ncpus='1',mem="2gb",workdir=rootedDir.results)
+	rootedDir.addSerializer("gwAlign_PhaseFilter",Nlim,queue=args.queue,ncpus='1',mem="2gb",workdir=rootedDir.results)
 	with open(args.phase_filter,'r') as configFile:
 		filterDict=dict()
 		for line in configFile.readlines():
@@ -287,10 +314,10 @@ elif 'phase_filter' in modeList:
 		
 		for kgID in kgPathDict.keys():
 			optPhaseBlocks['-gene_dir']=kgPathDict[kgID]
-			cmdList.append(phaseBlocks.create(kgPathDict[kgID],optPhaseBlocks))
-			serialBatch.add(cmdList)
+			cmdList.append(rootedDir.getCommand("phaseBlocks",kgPathDict[kgID],optPhaseBlocks))
+			rootedDir.serialize(gwAlign_PhaseFilter,cmdList)
 			cmdList=list()
-		serialBatch.finish()
+		rootedDir.finishSerializer("gwAlign_PhaseFilter")
 
 if 'stat_phasing' in modeList:
 	with open(args.phase_filter,'r') as configFile:

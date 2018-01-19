@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import argparse
 gitRepository='SEDMATCHGITREPO'
 version='SEDMATCHGITVERSION'
@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser(description='Compute a codon-based alignment wi
 parser.add_argument('-gene_dir', metavar='/path', required=True, help="Folder correspoding to the gene ID with all species subdirectories")
 parser.add_argument('-ref', metavar='ref_species' , required=False, help="name of the reference specie",default='hg19')
 parser.add_argument('-macse', metavar='.jar' , required=False, help="jar file path for macse program",default='SEDMATCHMACSE')
-parser.add_argument('-virt_mem' , action='store_true', help="allow  Go of memmory")
+parser.add_argument('-virt_mem', metavar='N', required=True,help="allow N Go of memory")
+parser.add_argument('-boost_mem', metavar='N',required=True,help="allow N Go of memory within a new job")
 
 args=parser.parse_args()
 
@@ -21,6 +22,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 import re
 import glob
+from upype import *
 
 def submitOneShell(cmdString): 
 	""" 
@@ -69,6 +71,8 @@ refExLen=dict()
 #genomic level or at reads sequencing level.
 #
 
+kgID=args.gene_dir.rstrip("/").split("/").pop()
+
 for species in speciesList:
 	speciesExons[species]=dict() # Dict to with exon number as key 
 	cdsFileList=glob.glob(species+'/cds.fa')+glob.glob(species+'/*/cds.fa')
@@ -108,8 +112,7 @@ for species in speciesExons.keys():
 				speciesCDS[species]+=speciesExons[species][i][j]
 			else:
 				# Warning if the exon is 10 times more long ! 
-				sys.stderr.write("Warning 'Exon "+str(i)+" too long for "+species+"' at : "+args.gene_dir+"\n")
-				do_align=True
+				sys.stderr.write("Warning 'Removing exon "+str(i)+" 10 time too long for "+species+"' at : "+args.gene_dir+"\n")
 
 
 with open('ref.fa','w') as refAln:
@@ -127,11 +130,14 @@ with open('exons.pos','w') as exPos:
 
 command='java -Xmx'+args.virt_mem+'g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
 
-alnProc=submitOneShell(command)
-#TODO relaunch automatically with boosted virt_mem ! 
+alnProc=submit(command)
+#TODO relaunch automatically with boosted boost_mem ! 
 if alnProc['err']!='':
+	command='java -Xmx'+args.boost_mem+'g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
+	# ADD LINE FOR SUBMITTING (change upype) !!!
+	schedule(command,"reScheduled_"+kgID,mem=boost_mem+"g")
 	with open ('error.txt','a') as errFile:
 		errFile.write(alnProc['err'])
-		sys.stderr.write('Error with alignments; details : '+args.gene_dir+"/error.txt\n")
+		sys.stderr.write('# INFO This error was saved : '+args.gene_dir+"/error.txt\n")
 
 
