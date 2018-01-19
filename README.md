@@ -1,16 +1,3 @@
----
-title: 'Manual: gwAlign suite'
-author: "Julien Fouret"
-mail: "julien@fouret.me"
-output:
-  html_document:
-    toc: true # table of content true
-    toc_float: true
-    depth: 4  # upto three depths of headings (specified by #, ## and ###)
-    theme: united  # many options for theme, this one is my favorite.
-    highlight: tango  # specifies the syntax highlighting style
----
-
 # Installation
 
 * Parameters - configuration
@@ -36,10 +23,6 @@ sudo make uninstall
 * Delete executables and docs
 
 make clean
-
-* Documentation html
-
-make doc
 
 # List of softwares
 
