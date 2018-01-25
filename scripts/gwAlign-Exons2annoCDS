@@ -290,21 +290,20 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 elif 'compute_TCS' in modeList:
 
 	rootedDir.addCommand("t_coffee","t_coffee","t_coffee -version | sed 's/PROGRAM: T-COFFEE //g'")
-	cmdList=list()
 	Nlim=int(args.batchLim)
 	rootedDir.addSerializer("gwAlign_compute_TCS",Nlim,queue=args.queue,ncpus='2',mem="2gb",workdir=rootedDir.results)
 
 	for key in kgPathDict.keys():
 		mkdirp(kgPathDict[key]+'/tcs_eval')
-		cmdList=["ln -s "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
+		cmdList=["ln -sf "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
 		optTranslate={
-			'-other_pg':'seq_reformat',
+			'-action':'+translate',
 			'-in':'dna.fa',
 			'-output':"fasta_aln",
 			'-n_core':'2'
 		}
-		posTranslate=["-action +translate > translated_dna.fa"]
-		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
+		posTranslate=["> translated_dna.fa"]
+		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,subprogram="-other_pg seq_reformat",positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
 		optTCS={
 			'-infile':'translated_dna.fa',
 			'-evaluate':'',
@@ -314,7 +313,7 @@ elif 'compute_TCS' in modeList:
 		}
 		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
 		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
-		rootedDir.finishSerializer("gwAlign_compute_TCS")
+	rootedDir.finishSerializer("gwAlign_compute_TCS")
 
 elif 'stat_filter' in modeList:
 	tcs_min_cons,tcs_min_each=args.phase_filter.split(',')
