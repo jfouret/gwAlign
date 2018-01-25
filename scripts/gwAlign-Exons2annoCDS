@@ -288,11 +288,12 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 	rootedDir.finishSerializer("gwAlign_alignCDS")
 # add elif to re-alignBigCDS with reporting ...
 elif 'compute_TCS' in modeList:
+
 	rootedDir.addCommand("t_coffee","t_coffee","t_coffee -version | sed 's/PROGRAM: T-COFFEE //g'")
 	cmdList=list()
 	Nlim=int(args.batchLim)
 	rootedDir.addSerializer("gwAlign_compute_TCS",Nlim,queue=args.queue,ncpus='2',mem="2gb",workdir=rootedDir.results)
-	tcs_min_cons,tcs_min_each=args.phase_filter.split(',')
+
 	for filterName in filterDict.keys():
 		mkdirp(kgPathDict[key]+'/tcs_eval')
 		cmdList=["ln -s "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
@@ -317,7 +318,7 @@ elif 'compute_TCS' in modeList:
 		rootedDir.finishSerializer("gwAlign_compute_TCS")
 
 elif 'stat_filter' in modeList:
-
+	tcs_min_cons,tcs_min_each=args.phase_filter.split(',')
 	def intscore(char):
 		if char=='-':
 			value=9 # assign max score for gaps ... to keep them
