@@ -305,7 +305,7 @@ elif 'compute_TCS' in modeList:
 			'-n_core':'2'
 		}
 		posTranslate=[" > translated_dna.fa"]
-		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,positionals=posTranslate,workdir=kgPathDict[key]+'/tcs_eval'))
+		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
 		optTCS={
 			'-infile':'translated_dna.fa',
 			'-evaluate':'',
@@ -313,7 +313,7 @@ elif 'compute_TCS' in modeList:
 			'-master':args.ref,
 			'-n_core':'2'
 		}
-		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,workdir=kgPathDict[key]+'/tcs_eval'))
+		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
 		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
 		rootedDir.finishSerializer("gwAlign_compute_TCS")
 
