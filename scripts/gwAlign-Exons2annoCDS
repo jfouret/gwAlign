@@ -294,7 +294,7 @@ elif 'compute_TCS' in modeList:
 	Nlim=int(args.batchLim)
 	rootedDir.addSerializer("gwAlign_compute_TCS",Nlim,queue=args.queue,ncpus='2',mem="2gb",workdir=rootedDir.results)
 
-	for filterName in filterDict.keys():
+	for key in kgPathDict.keys():
 		mkdirp(kgPathDict[key]+'/tcs_eval')
 		cmdList=["ln -s "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
 		optTranslate={
