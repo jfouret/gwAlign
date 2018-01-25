@@ -1,28 +1,78 @@
 #!/usr/bin/env python
 import argparse
 version='SEDMATCHGITVERSION'
-year=2016
+year=2018
 author='Julien Fouret'
 contact='julien@fouret.me'
 
-
 ##parse argument
-parser = argparse.ArgumentParser(description='Sort gene/transcript from an alignement and reassemble all exons. Get the corresponding name(NGNC) of the protein with the accession numer (from ucsc or ncbi) and add kegg, go and uniprot annotations',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-al', metavar='Alignment file', required=False, help="alignment file in fasta format")
-parser.add_argument('-out', metavar='Output directory', required=True, help="folder in which to write all computed alignments")
-parser.add_argument('-mode', metavar='create,annotate,getCDS,align,compute_TCS,stat_filter', required=True, help="see docs")
-parser.add_argument('-v',action='store_true', help="verbose")
-parser.add_argument('-debug',action='store_true', help="verbose")
-parser.add_argument('-batchLim', metavar='N', default='10', help="Number of operation for one batch job")
-parser.add_argument('-mems', metavar='low_mem,res_mem,high_mem', default='10,3,256', help="Precise memory config in GB for alignments; low_mem is the basic parameter to use first for alignments, jobs will reserve res_mem of memory and high mem is the amount of memory to be used the first alignment is failed")
-parser.add_argument('-spec', metavar='Species file' , required=False, help="tab separated file with all assembly name and assembly path (with .dict and .fai)")
-parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
-parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
-parser.add_argument('-ref', metavar='ref species', required=False, help="reference species for multiple alignment",default='hg19')
-parser.add_argument('-phase_filter', metavar='N,N', required=False, help="Min TCS score with first consensus and second each sequences",default='5,3')
-parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
-parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-parser.add_argument('-macse', metavar='/path', required=False, help="macse jar path",default='SEDMATCHMACSE')
+
+parser = argparse.ArgumentParser(description=
+"""
+Genome-Wide Alignments - Unify
+
+From Exons to well-aligned and filtered CDS
+                        ---------------
+Steps automatized on HPC infrastructure with upype python package
+For more informations:
+https://fouret.me/gitea/jfouret/upype
+                        ---------------
+-------------------------------------------------------------------
+mode:create         First create a file architecture to extract CDS 
+                    from a database of MSA (Multiple Sequence 
+                    Alignment) at exon-level formatted like UCSC.
+-------------------------------------------------------------------
+mode:getCDS         Then reassemble all exons into one CDS avoiding 
+                    reproducing mistakes in the parent file. 
+-------------------------------------------------------------------
+mode:annotate       Optionally get the corresponding name (HUGO) of
+                    the gene with the accession ids (UCSC, NCBI and 
+                    Uniprot) and add kegg, go and uniprot 
+                    annotations based on a UCSC-like  mySQL 
+                    database. 
+-------------------------------------------------------------------
+mode:align          re-align all CDS with a coding-aware method 
+                    (macse). 
+-------------------------------------------------------------------
+mode:compute_TCS    Compute TCS (Transitive consistency score) with
+                    t_coffee for each alignment
+-------------------------------------------------------------------
+mode:stat_filter    Use TCS score to filter MSA and to produce 
+                    statistics on sequence qualities by species.
+-------------------------------------------------------------------
+"""
+,epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawTextHelpFormatter)
+
+parser.add_argument('-mode', metavar='keyword', required=True, help="Only one by one")
+parser.add_argument('-al', metavar='/path', required=False, help="[create/getCDS] alignment file in fasta format ")
+parser.add_argument('-out', metavar='/path', required=True, help="[all] folder in which to write all computed alignments ")
+parser.add_argument('-v',action='store_true', help="[all] verbose")
+parser.add_argument('-debug',action='store_true', help="[all] more verbose")
+parser.add_argument('-batchLim', metavar='N', default='10', help="[getCDS/align/compute_TCS] Number of operation per batch")
+parser.add_argument('-mems', metavar='lm,rm,hm', default='10,3,256', help="""[align] Precise memory config in GB for alignments:
+>lm is the basic parameter to use first for alignments
+>rs is what jobs will reserve 
+>hm is an increased amount of memory for failures
+default='10,3,256'""")
+parser.add_argument('-spec', metavar='/path' , required=False, help="""[getCDS] tab file with assemblies info (name:path) 
+(with .dict and .fai)""")
+parser.add_argument('-host', metavar='IP' , required=False, help="""[annotate] mysql host for ucsc database 
+(default='10.0.0.200')""",default='10.0.0.200')
+parser.add_argument('-port', metavar='PORT' , required=False, help="""[annotate]mysql port for ucsc database
+(default='3306')""",default='3306')
+parser.add_argument('-ref', metavar='name', required=False, help="""[create/align/compute_TCS] reference species for multiple alignment 
+mode annotate hase been design and tested only for hg19
+(default='hg19')""",default='hg19')
+parser.add_argument('-phase_filter', metavar='N,N', required=False, help="""[stat_filter] Min TCS score with:
+1: consensus sequence
+2: each sequences 
+(default='5,3')""",default='5,3')
+parser.add_argument('-queue', metavar='queue', required=False, help="""[all] queue for PBS 
+(default='SEDMATCHQUEUE')""",default='SEDMATCHQUEUE')
+parser.add_argument('-picard', metavar='/path', required=False, help="""[getCDS] picard jar path 
+(default='SEDMATCHPICARD')""",default='SEDMATCHPICARD')
+parser.add_argument('-macse', metavar='/path', required=False, help="""[align] macse jar path 
+(default='SEDMATCHMACSE')""",default='SEDMATCHMACSE')
 
 args=parser.parse_args()
 
@@ -138,7 +188,7 @@ if 'create' in modeList:
 	rootedDir=RootDir(args.out,batch=True)
 	rootedDir.logs.writeArgs(args)
 	# iter and create and print ref.fa
-	rehg19Exon1=re.compile('^>(uc\w*)(\.\d*)_hg19_1_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
+	rehg19Exon1=re.compile('^>(uc\w*)(\.\d*)_'+args.ref+'_1_(\d*) (\d*) (\d*) (\d*)\s?(\w+:\d+-\d+[+-]{1};?)*$')
 	exons_file=open(alnFileName,'r')
 	for line in exons_file.readlines():
 		m=rehg19Exon1.match(line.rstrip())
@@ -560,6 +610,60 @@ if 'annotate' in modeList:
 				logFile.write(key+"\n")
 	submit('cd '+rootedDir.path+' ; for kgID in $(ls results) ; do echo -e "$kgID\t$(cat results/$kgID/annotation/consName.txt)" ; done > reports/consName.tab')
 	submit('cd '+rootedDir.reports+' ; for path in $(awk \'{ print $2 }\' kgPathDictFile.tab); do cat $path/annotation/consName.txt | sed -r "s/$/\t$(echo $path | sed \'s/\//\\\//g\')\n/g" ; done > consNameDict.tab')
+
+	dirList=os.listdir(rootedDir.results)
+	goDict=dict()
+	goList=list()
+	headGO=['goId','name','type','genes']
+	keggDict=dict()
+	keggList=list()
+	headKegg=['mapId','name','genes']
+	keggFileName=rootedDir.reports+'/kegg.tab'
+	goFileName=rootedDir.reports+'/go.tab'
+
+	for dirName in dirList:
+		with open(rootedDir.results+'/'+dirName+'/annotation/consName.txt') as consNameFile:
+			gene=consNameFile.readline().rstrip()
+		File=open(rootedDir.results+'/'+dirName+'/annotation/go.tab','r')
+		File.readline()
+		for line in File.readlines():
+			line=line.rstrip()
+			lineList=line.split("\t")
+			goId=lineList[1]
+			name=lineList[2]
+			gotype=lineList[3]
+			if goId in goDict.keys():
+				goDict[goId].append(gene)
+			else:
+				goDict[goId]=[gene]
+				goList.append([goId,name,gotype])
+		File.close()
+		File=open(rootedDir.results+'/'+dirName+'/annotation/kegg.tab','r')
+		File.readline()
+		for line in File.readlines():
+			line=line.rstrip()
+			lineList=line.split("\t")
+			mapId=lineList[1]
+			name=lineList[2]
+			if mapId in keggDict.keys():
+				keggDict[mapId].append(gene)
+			else:
+				keggList.append([mapId,name])
+				keggDict[mapId]=[gene]
+		File.close()
+	keggFile=open(keggFileName,'w')
+	keggFile.write("\t".join(headKegg)+"\n")
+	goFile=open(goFileName,'w')
+	goFile.write("\t".join(headGO)+"\n")
+	for lineList in keggList:
+		mapId=lineList[0]
+		keggFile.write("\t".join(lineList)+"\t"+','.join(keggDict[mapId])+"\n")
+	for lineList in goList:
+		goId=lineList[0]
+		goFile.write("\t".join(lineList)+"\t"+','.join(goDict[goId])+"\n")
+	goFile.close()
+	keggFile.close()
+
 ## end of annotation
 
 saveRoot(rootedDir)

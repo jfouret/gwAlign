@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-version='SEDMATCHGITVERSION'
+ version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
 contact='julien.fouret12@uniagro.fr'

@@ -1,0 +1,46 @@
+# DO NOT CHANGE
+
+SHELL=bash
+GITVERSION=$(shell git describe --tags | sed 's/^v//g')
+progs = gwAlign-Extend gwAlign-Unify bam2consensus.py alignCDS.py
+bins=$(addprefix bin/,$(progs))
+
+### makefile core
+
+all : $(bins)
+
+$(bins) : bin 
+	@sed -e "s/SEDMATCHGITVERSION/${GITVERSION}/g" $(subst bin/,scripts/,$@) | \
+	sed -e "s/SEDMATCHPICARD/$(subst /,\\/,${PICARD})/g" | \
+	sed -e "s/SEDMATCHQUEUE/${QUEUE}/g" | \
+	sed -e "s/SEDMATCHMACSE/$(subst /,\\/,${MACSE})/g" > $@
+	chmod 755 $@
+
+bin :
+	mkdir bin
+	chmod 755 bin
+
+.PHONY : install
+install : 
+	ln -s ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -s ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+
+.PHONY : force_install
+force_install : $(bins)
+	ln -sf ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -sf ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+
+.PHONY : uninstall
+uninstall : 
+	rm ${INSTALLPATH}/gwAlign-Extend
+	rm ${INSTALLPATH}/gwAlign-Exons2annoCDS
+	rm ${INSTALLPATH}/alignCDS.py
+	rm ${INSTALLPATH}/bam2consensus.py 
+	
+.PHONY : clean
+clean :
+	-rm -R bin

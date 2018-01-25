@@ -1,25 +1,57 @@
 #!/usr/bin/env python
 import argparse
+
 version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
 contact='julien@fouret.me'
 
-parser = argparse.ArgumentParser(description='Take an region multialignment file and add one speacies from bam file',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description=
+"""
+Genome-Wide Alignments - Extend
+Coding Sequence Assembly of a newly sequenced species
+                       ---------------
+Using low coverage ~20x-40x and only one type of insert size
+Assembly is based on mapping against several assemblies with 
+annotated coding sequence aligned. Use of bwa-mem is very advised
+to produce reliable mapping (bam files).
+
+Then for each exon, the best mapping is selected to perform a 
+variant calling through local re-assembly to avoid biais related to
+indel and low complexity regions.
+
+Platypus is required
+The consensus caller has been de novo implemented and account for
+heterozygous calls by using IUPAC ambiguous characters
+                        ---------------
+Steps automatized on HPC infrastructure with upype python package
+For more informations:
+https://fouret.me/gitea/jfouret/upype
+-------------------------------------------------------------------
+NB: Platypus.py is expected to be in the unix PATH
+"""
+,epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawTextHelpFormatter)
+
 parser.add_argument('-outDir', metavar='/path', required=True, help="Output directory")
 parser.add_argument('-aln', metavar='/path', required=True, help="Alignment to extend")
-parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
-parser.add_argument('-refs', metavar='/path', required=True, help="references to be used csv file with id;fasta;bam in the order of priority  \n"+
-	"id: the id of the species used in the exon alignment file\n"+
-	"fasta: path to the fasta file used for short read alignments\n"+
-	"bam: path of the sorted and indexed bam file")
+parser.add_argument('-queue', metavar='queue', required=False, help="""queue for PBS
+(default='SEDMATCHQUEUE')""",default='SEDMATCHQUEUE')
+parser.add_argument('-refs', metavar='/path', required=True, help="""mapping files to be used formatted as:
+csv file : id;fasta;bam in the order of priority  
+id: the id of the species used in the exon alignment file
+fasta: path to the fasta file used for short read alignments
+bam: path of the sorted and indexed bam file""")
 parser.add_argument('-spec', metavar='name', required=True, help="name of the species to add")
-parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-parser.add_argument('-minCov', metavar='N', default='5', help="min coverage for a reference calling")
-parser.add_argument('-batchLim', metavar='N', default='180', help="Number of operation for one batch job")
-parser.add_argument('-minCovVar', metavar='N', default='5', help="min coverage for a varaint calling")
-parser.add_argument('-read_only',action='store_true' , help="Only read a previous run of the software")
-parser.add_argument('-v',action='store_true' , help="verbose for debug pupose")
+parser.add_argument('-picard', metavar='/path', required=False, help="""picard jar path
+(default='SEDMATCHPICARD')""",default='SEDMATCHPICARD')
+parser.add_argument('-minCov', metavar='N', default='5', help="""min coverage for a REF call
+(default='5')""")
+parser.add_argument('-batchLim', metavar='N', default='180', help="""Number of operation per batch
+(default='180')""")
+parser.add_argument('-minCovVar', metavar='N', default='5', help="""min coverage for a ALT call
+(default='5')""")
+parser.add_argument('-read_only',action='store_true' , help="Rerun without erasing (for debug purposes)")
+parser.add_argument('-v',action='store_true' , help="verbose (for debug pupose)")
 
 args=parser.parse_args()
 
@@ -119,6 +151,7 @@ if not args.read_only:
 			bam2consensusOpt={
 				'-outDir':consensusOutPut,
 				'-reference':refsFileName,
+
 				'-reg':regions,
 				'-minCov':args.minCov,
 				'-minCovVar':args.minCovVar,
