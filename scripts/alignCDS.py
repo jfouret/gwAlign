@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-gitRepository='SEDMATCHGITREPO'
 version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'

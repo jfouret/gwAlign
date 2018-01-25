@@ -4,6 +4,8 @@ version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
 contact='julien@fouret.me'
+
+
 ##parse argument
 parser = argparse.ArgumentParser(description='Sort gene/transcript from an alignement and reassemble all exons. Get the corresponding name(NGNC) of the protein with the accession numer (from ucsc or ncbi) and add kegg, go and uniprot annotations',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-al', metavar='Alignment file', required=False, help="alignment file in fasta format")
@@ -17,10 +19,11 @@ parser.add_argument('-spec', metavar='Species file' , required=False, help="tab 
 parser.add_argument('-host', metavar='mysql host' , required=False, help="",default='10.0.0.200')
 parser.add_argument('-port', metavar='mysql port' , required=False, help="",default='3306')
 parser.add_argument('-ref', metavar='ref species', required=False, help="reference species for multiple alignment",default='hg19')
-parser.add_argument('-phase_filter', metavar='config file', required=False, help="",default='')
+parser.add_argument('-phase_filter', metavar='N,N', required=False, help="Min TCS score with first consensus and second each sequences",default='5,3')
 parser.add_argument('-queue', metavar='queue', required=False, help="queue for PBS",default='SEDMATCHQUEUE')
 parser.add_argument('-picard', metavar='/path', required=False, help="picard jar path",default='SEDMATCHPICARD')
-parser.add_argument('-genePythia', metavar='/path', default='SEDMATCHGENEPYTHIA',required=False, help="script for bibliography")
+parser.add_argument('-macse', metavar='/path', required=False, help="macse jar path",default='SEDMATCHMACSE')
+
 args=parser.parse_args()
 
 import os
@@ -267,8 +270,6 @@ if 'getCDS' in modeList:
 						with open(regFileName+'.tmp','a') as regFile:
 							regFile.write("\t".join([chromosome,start,end,strand,'exon_'+m.group(4)+'_ext'+str(numExt)])+"\n")
 	rootedDir.finishSerializer("gwAlign_getCDS")
-
-
 elif 'align' in modeList : # no align just after getCDS. need time to finish
 	low_mem,res_mem,high_mem=args.mems.split(",")
 	Nlim=int(args.batchLim)
@@ -280,6 +281,7 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 			'-gene_dir':kgPathDict[key],
 			'-ref':args.ref,
 			'-virt_mem':low_mem,
+			'-macse':args.macse,
 			'-boost_mem':high_mem
 		}
 		cmdList.append(rootedDir.getCommand("alignCDS",kgPathDict[key],optAlign))
@@ -288,11 +290,9 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 	rootedDir.finishSerializer("gwAlign_alignCDS")
 # add elif to re-alignBigCDS with reporting ...
 elif 'compute_TCS' in modeList:
-
 	rootedDir.addCommand("t_coffee","t_coffee","t_coffee -version | sed 's/PROGRAM: T-COFFEE //g'")
 	Nlim=int(args.batchLim)
 	rootedDir.addSerializer("gwAlign_compute_TCS",Nlim,queue=args.queue,ncpus='2',mem="2gb",workdir=rootedDir.results)
-
 	for key in kgPathDict.keys():
 		mkdirp(kgPathDict[key]+'/tcs_eval')
 		cmdList=["ln -sf "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
@@ -313,7 +313,6 @@ elif 'compute_TCS' in modeList:
 		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
 		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
 	rootedDir.finishSerializer("gwAlign_compute_TCS")
-
 elif 'stat_filter' in modeList:
 	tcs_min_cons,tcs_min_each=args.phase_filter.split(',')
 	def intscore(char):
@@ -542,7 +541,6 @@ elif 'stat_filter' in modeList:
 					afterLen='NA'
 					beforeLen='NA'
 				statFile.write("\t".join([kgID,beforeLen,afterLen])+"\n")
-
 ### Annotation
 if 'annotate' in modeList:
 	allSymbol=dict()
@@ -563,46 +561,6 @@ if 'annotate' in modeList:
 	submit('cd '+rootedDir.path+' ; for kgID in $(ls results) ; do echo -e "$kgID\t$(cat results/$kgID/annotation/consName.txt)" ; done > reports/consName.tab')
 	submit('cd '+rootedDir.reports+' ; for path in $(awk \'{ print $2 }\' kgPathDictFile.tab); do cat $path/annotation/consName.txt | sed -r "s/$/\t$(echo $path | sed \'s/\//\\\//g\')\n/g" ; done > consNameDict.tab')
 ## end of annotation
-
-if 'biblio' in modeList:
-	Nbiblio=0
-	Nlim=20
-	reGeneName=re.compile('^(dup[0-9]+_)*([kg_]*[rs_]*[sp_]*)(.*)$')
-	genepythiaGit=Git(args.genePythia)
-	genepythia=gitCommand(genepythiaGit,'genePythia.py')
-	genepythia.log()
-	cmdList=list()
-	batch=1
-	for key in kgPathDict.keys():
-		annotPath=kgPathDict[key]+'/annotation'
-		Nbiblio+=1
-		mkdirp(annotPath+'/biblio')
-		os.chdir(annotPath+'/biblio')
-		cmdList.append('cd '+annotPath+'/biblio')
-		prefixTerm={
-			'hennipa':'\'Nipah,Hendra,henipavirus\'',
-			'paramyxo':'\'Nipah,Hendra,henipavirus,paramyxovirus,paramyxoviridae\''
-		}
-		with open('../consName.txt','r')as consNameFile:
-			consName=consNameFile.readline().rstrip()
-		for prefix,term in prefixTerm.iteritems():
-			options={
-				'-gene':reGeneName.match(consName).group(3),
-				'-alias':'../alias.txt',
-				'-prefix':prefix,
-				'-term':term
-			}
-			cmdList.append(genepythia.create(annotPath+'/biblio',options))
-		if Nbiblio>Nlim:
-			Nbiblio=0
-			batchName='Biblio_'+str(batch)
-			submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=annotPath+'/biblio'))
-			cmdList=list()
-			batch+=1
-	if Nbiblio!=0:
-		Nbiblio=0
-		batchName='Biblio_'+str(batch)
-		submitQsubWithPBS(createPBS(cmdList,batchName,queue=args.queue,ppn='1',workdir=annotPath+'/biblio'))
 
 saveRoot(rootedDir)
 sys.exit(0)
