@@ -299,8 +299,7 @@ elif 'compute_TCS' in modeList:
 		optTranslate={
 			'-action':'+translate',
 			'-in':'dna.fa',
-			'-output':"fasta_aln",
-			'-n_core':'2'
+			'-output':"fasta_aln"
 		}
 		posTranslate=["> translated_dna.fa"]
 		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,subprogram="-other_pg seq_reformat",positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
