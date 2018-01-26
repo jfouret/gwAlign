@@ -44,35 +44,60 @@ mode:stat_filter    Use TCS score to filter MSA and to produce
 ,epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawTextHelpFormatter)
 
 parser.add_argument('-mode', metavar='keyword', required=True, help="Only one by one")
-parser.add_argument('-al', metavar='/path', required=False, help="[create/getCDS] alignment file in fasta format ")
+
+
 parser.add_argument('-out', metavar='/path', required=True, help="[all] folder in which to write all computed alignments ")
 parser.add_argument('-v',action='store_true', help="[all] verbose")
 parser.add_argument('-debug',action='store_true', help="[all] more verbose")
-parser.add_argument('-batchLim', metavar='N', default='10', help="[getCDS/align/compute_TCS] Number of operation per batch")
+
+
+parser.add_argument('-al', metavar='/path', required=False, help="[create/getCDS] alignment file in fasta format ")
+parser.add_argument('-spec', metavar='/path' , required=False, help="""[getCDS] tab file with assemblies info (name:path) 
+(with .dict and .fai)""")
+parser.add_argument('-ref', metavar='name', required=False, help="""[create/align/compute_TCS] reference species for multiple alignment 
+mode annotate hase been design and tested only for hg19
+(default='hg19')""",default='hg19')
+
+
+parser.add_argument('-queue', metavar='queue', required=False, help="""[getCDS/align/compute_TCS] queue for PBS 
+(default='SEDMATCHQUEUE')""",default='SEDMATCHQUEUE')
+parser.add_argument('-batchLim', metavar='N', default='10', help="""[getCDS/align/compute_TCS] Number of operation per batch
+(default='10')""")
 parser.add_argument('-mems', metavar='lm,rm,hm', default='10,3,256', help="""[align] Precise memory config in GB for alignments:
 >lm is the basic parameter to use first for alignments
 >rs is what jobs will reserve 
 >hm is an increased amount of memory for failures
 default='10,3,256'""")
-parser.add_argument('-spec', metavar='/path' , required=False, help="""[getCDS] tab file with assemblies info (name:path) 
-(with .dict and .fai)""")
+
+parser.add_argument('-keep',action='store_true', help="[align/compute_TCS] Only files with missing target (subsequent errors)")
+
+parser.add_argument('-name', metavar='name' , required=False, help="""[stat_filter] mysql host for ucsc database 
+(default='default_filter')""",default='default_filter')
 parser.add_argument('-host', metavar='IP' , required=False, help="""[annotate] mysql host for ucsc database 
 (default='10.0.0.200')""",default='10.0.0.200')
 parser.add_argument('-port', metavar='PORT' , required=False, help="""[annotate]mysql port for ucsc database
 (default='3306')""",default='3306')
-parser.add_argument('-ref', metavar='name', required=False, help="""[create/align/compute_TCS] reference species for multiple alignment 
-mode annotate hase been design and tested only for hg19
-(default='hg19')""",default='hg19')
+
+
+parser.add_argument('-cpu', metavar='N', default='1', help="""[stat_filter] Number of cpu to be used
+(default='1')""")
 parser.add_argument('-phase_filter', metavar='N,N', required=False, help="""[stat_filter] Min TCS score with:
 1: consensus sequence
 2: each sequences 
 (default='5,3')""",default='5,3')
-parser.add_argument('-queue', metavar='queue', required=False, help="""[all] queue for PBS 
-(default='SEDMATCHQUEUE')""",default='SEDMATCHQUEUE')
+parser.add_argument('-ratio', metavar='N', required=False, help="""[stat_filter] Min ratio species conserved in MSA
+min ratio of species conseserve/all species considered
+(default='0.6')""",default='0.6')
+parser.add_argument('-focus', metavar='name,name', required=False, help="""[stat_filter] sub list of species that matters
+the ratio threshold is re-applied on this sub-list.
+comma-separated
+(default=None)""",default=None)
+
 parser.add_argument('-picard', metavar='/path', required=False, help="""[getCDS] picard jar path 
 (default='SEDMATCHPICARD')""",default='SEDMATCHPICARD')
 parser.add_argument('-macse', metavar='/path', required=False, help="""[align] macse jar path 
 (default='SEDMATCHMACSE')""",default='SEDMATCHMACSE')
+
 
 args=parser.parse_args()
 
@@ -244,7 +269,7 @@ if 'getCDS' in modeList:
 		for line in species_file.readlines():
 			if line.rstrip()!='':
 				if args.v:
-					print('##Parsing species## '+line)
+					out_logger('getCDS-Pasing -spec argument : line :'+line.rstrip())
 				specie,assembly=line.rstrip().split("\t")
 				specDict[specie]=assembly
 	rootedDir.addCommand('java','java -XX:ParallelGCThreads=1','java -version 2>&1 | xargs')
@@ -263,38 +288,55 @@ if 'getCDS' in modeList:
 	init=True
 
 	# step 1 - iteration over exon file
+	total_entry=len(SeqIO.to_dict(SeqIO.parse(open(alnFileName),'fasta')).keys())
+	if args.v : out_logger("getCDS - "+str(total_entry)+" fasta entry to parse.")
+	count=0
+
+	def getCDS(cmdList):
+
+		global args
+		global kgPathDict
+		global specDict
+		global rootedDir
+
+		if args.v:
+			out_logger("getCDS - Getting CDS of "+oldkgID)
+		oldkgPath=kgPathDict[oldkgID]
+		for key in specDict.keys():
+			oldRegFileName=oldkgPath+'/'+key+'/region.list'
+			#TODO si regionlist exist
+			if args.v:
+				out_logger("getCDS - Getting CDS of "+oldkgID+" --- Focus on species: "+key)
+			if os.path.isfile(oldRegFileName+'.tmp'):
+				getRefOpt={
+					'R':specDict[key],
+					'O':oldkgPath+'/'+key+'/cds.fa',
+					'INTERVAL_LIST':oldRegFileName,
+					'VERBOSITY':'ERROR',
+					'QUIET':'true'
+				}
+				cmdList.append('cat '+specDict[key].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict '+oldRegFileName+'.tmp'+' > '+oldRegFileName+' ; rm '+oldRegFileName+'.tmp')
+				cmdList.append(rootedDir.getCommand("picard",options=getRefOpt,subprogram='ExtractSequences',sep='='))
+				cmdList.append('rm '+oldRegFileName)
+		if args.v: out_logger("getCDS - Getting CDS of "+oldkgID+" --> serialize")
+		rootedDir.serialize("gwAlign_getCDS",cmdList)
+		
+
 	for fasta in fasta_sequences:
+		count+=1
 		# step 1.2 - get name and sequence
 		name, sequence = fasta.description, str(fasta.seq)
 		m=reID.match(name)
 		if m and (m.group(3) in specDict.keys()):
 			spec=m.group(3)
 			kgID=m.group(1)+m.group(2)
+			if args.v : 
+				out_logger("getCDS parsing input fasta file for id="+kgID+"\tspecies="+spec+"\texon="+m.group(4))
 			if init:
 				oldkgID=kgID
 				init=False
 			if kgID!=oldkgID:
-				if args.v:
-					print("Getting CDS of "+oldkgID)
-				oldkgPath=kgPathDict[oldkgID]
-				for key in specDict.keys():
-					oldRegFileName=oldkgPath+'/'+key+'/region.list'
-					#TODO si regionlist exist
-					if args.v:
-						print("  -- Focus on species: "+key)
-					if os.path.isfile(oldRegFileName+'.tmp'):
-						getRefOpt={
-							'R':specDict[key],
-							'O':oldkgPath+'/'+key+'/cds.fa',
-							'INTERVAL_LIST':oldRegFileName,
-							'VERBOSITY':'ERROR',
-							'QUIET':'true'
-						}
-						cmdList.append('cat '+specDict[key].rstrip('fa').rstrip('fasta').rstrip('fna')+'dict '+oldRegFileName+'.tmp'+' > '+oldRegFileName+' ; rm '+oldRegFileName+'.tmp')
-						cmdList.append(rootedDir.getCommand("picard",options=getRefOpt,subprogram='ExtractSequences',sep='='))
-						cmdList.append('rm '+oldRegFileName)
-				if args.v: print("#INFO: Getting CDS of "+oldkgID)
-				rootedDir.serialize("gwAlign_getCDS",cmdList)
+				getCDS(cmdList)
 				cmdList=list()
 				oldkgID=kgID
 			mkdirp(kgPathDict[kgID]+'/'+spec)
@@ -319,6 +361,8 @@ if 'getCDS' in modeList:
 					else:
 						with open(regFileName+'.tmp','a') as regFile:
 							regFile.write("\t".join([chromosome,start,end,strand,'exon_'+m.group(4)+'_ext'+str(numExt)])+"\n")
+	if len(cmdList)!=0:
+		getCDS(cmdList)
 	rootedDir.finishSerializer("gwAlign_getCDS")
 elif 'align' in modeList : # no align just after getCDS. need time to finish
 	low_mem,res_mem,high_mem=args.mems.split(",")
@@ -327,17 +371,19 @@ elif 'align' in modeList : # no align just after getCDS. need time to finish
 	cmdList=list()
 	serialBatch=rootedDir.addSerializer("gwAlign_alignCDS",Nlim,queue=args.queue,ncpus='1',mem=res_mem+"g",workdir=rootedDir.results)
 	for key in kgPathDict.keys():
-		optAlign={
-			'-gene_dir':kgPathDict[key],
-			'-ref':args.ref,
-			'-virt_mem':low_mem,
-			'-macse':args.macse,
-			'-boost_mem':high_mem
-		}
-		cmdList.append(rootedDir.getCommand("alignCDS",kgPathDict[key],optAlign))
-		rootedDir.serialize("gwAlign_alignCDS",cmdList)
-		cmdList=list()
-	rootedDir.finishSerializer("gwAlign_alignCDS")
+		if not (args.keep and os.path.isfile(kgPathDict[key]+'/ref_macse_AA.fasta')):
+			if args.v : out_logger("align : missing alignment for "+key)
+			optAlign={
+				'-gene_dir':kgPathDict[key],
+				'-ref':args.ref,
+				'-virt_mem':low_mem,
+				'-macse':args.macse,
+				'-boost_mem':high_mem
+			}
+			cmdList.append(rootedDir.getCommand("alignCDS",kgPathDict[key],optAlign))
+			rootedDir.serialize("gwAlign_alignCDS",cmdList)
+			cmdList=list()
+		rootedDir.finishSerializer("gwAlign_alignCDS")
 # add elif to re-alignBigCDS with reporting ...
 elif 'compute_TCS' in modeList:
 	rootedDir.addCommand("t_coffee","t_coffee","t_coffee -version | sed 's/PROGRAM: T-COFFEE //g'")
@@ -364,10 +410,20 @@ elif 'compute_TCS' in modeList:
 		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
 	rootedDir.finishSerializer("gwAlign_compute_TCS")
 elif 'stat_filter' in modeList:
+
+	if args.v : out_logger(" Entering mode stat_filter")
 	tcs_min_cons,tcs_min_each=args.phase_filter.split(',')
+	cpu=int(args.cpu)
+	if args.focus!=None:
+		focusList=args.focus.split(',')
+	else:
+		focusList=None
+	selectRatio=float(args.ratio)
 	def intscore(char):
 		if char=='-':
-			value=9 # assign max score for gaps ... to keep them
+			value=-1 # assign -1 score for gaps
+		elif char=='#':
+			value=-1
 		else:
 			value=int(char)
 		return(value)
@@ -419,7 +475,7 @@ elif 'stat_filter' in modeList:
 								else:
 									self.seq_cons+=[intscore(x) for x in list(m.group(2))]
 
-	def tcs_filter_and_stats(in_gene_dir,in_ref,in_name="filtered_default",in_tcs_min_cons='5',in_tcs_min_each=3,in_out_stat="stat.txt",in_out_filtered="tcs_filtered_aln.fa",in_out_conserved="codon_conserved.bed",in_out_exon="nucl_exon.bed",in_tcs_score="./tcs_eval/translated_dna.score_ascii",in_dna="./tcs_eval/dna.fa"):
+	def tcs_filter_and_stats(in_gene_dir,in_ref=args.ref,in_name=args.name,in_tcs_min_cons=tcs_min_cons,in_tcs_min_each=tcs_min_each,in_out_stat="stat.txt",in_out_filtered="tcs_filtered_aln.fa",in_out_conserved_bed="codon_conserved.bed",in_out_exon="nucl_exon.bed",in_tcs_score="./tcs_eval/translated_dna.score_ascii",in_dna="./tcs_eval/dna.fa",in_focusList=focusList,in_ratio=selectRatio):
 		
 		"""
 		parser.add_argument('-gene_dir', metavar='/path', required=False,default='.', help="gene ID directory")
@@ -435,11 +491,14 @@ elif 'stat_filter' in modeList:
 		parser.add_argument('-dna', metavar='filename', required=False,default="./tcs_eval/dna.fa", help="score_ascii TCS file (t_coffee)")
 		parser.add_argument('-v',required=False,action='store_true',help="verbose")
 		"""
+
 		import os
 		import re
 		import sys
 		from Bio import SeqIO
 		from upype import mkdirp
+
+		os.chdir(in_gene_dir)
 
 		mkdirp(in_name)
 
@@ -448,8 +507,7 @@ elif 'stat_filter' in modeList:
 		out_exon=in_name+"/"+in_out_exon
 		out_stat=in_out_stat
 		out_stat_filtered=in_name+"/"+in_out_stat
-
-		os.chdir(in_gene_dir)
+		discard_path=in_name+"/discard.txt"
 
 		alnScore=score(in_tcs_score)
 		record_dict = SeqIO.to_dict(SeqIO.parse(in_dna, "fasta"))
@@ -462,135 +520,155 @@ elif 'stat_filter' in modeList:
 			if alnScore.seq_cons[i]>=tcs_min_cons:
 				conservedArray+=[i]
 
-		with open(out_stat,"w") as statFile:
-			statFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop","mean_score"])+"\n")
-			with open(out_stat_filtered,"w") as filteredStatFile:
-				filteredStatFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop"])+"\n")
-				with open(out_filtered,"w") as outFile:
-					for species in record_dict.keys():
-						cod_seq=[str(record_dict[species].seq)[3*x:3*x+3] for x in range(0,len(str(record_dict[species].seq))/3)]
-						conserved_dict[species]=[]
-						outFile.write(">"+species+"\n")
-						limLine=0
-						N=str(record_dict[species].seq).count("N")
-						N+=str(record_dict[species].seq).count("n")
-						fs=str(record_dict[species].seq).count("!")
-						gap=str(record_dict[species].seq).count("-")
-						m_qual=alnScore.means[species]
-						if re.match('TAG|TAA|TGA',cod_seq[-1],re.IGNORECASE):
-							end_stop=1
-						else:
-							end_stop=0
-						before_end_stop=0
-						for codon in cod_seq[0:-1]:
-							if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
-								before_end_stop+=1
-						statFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+"\n")
-						for i in range(0,len(cod_seq)):
-							if i in conservedArray: # if the consensus is not of a good quality ==> clipping
-								limLine+=1
-								if alnScore.seqs[species][i]>=tcs_min_each:
-									outFile.write(re.sub('!','-',cod_seq[i]))
-									conserved_dict[species]+=[cod_seq[i]]
-								else :
-									outFile.write('NNN')
-									conserved_dict[species]+=['NNN'] # hardmasking for badly aligned sequences
-							if limLine==20:
-								outFile.write("\n")
+		if alnScore.score==0:
+			msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
+			with open(discard_path,"w") as discard_file:
+				discard_file.write("MSA have been discarded because the computed TCS score is 0. It could mean that only the reference is there.")
+		elif float(len(alnScore.means.keys()))/float(len(record_dict.keys())) < in_ratio:
+			msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
+			with open(discard_path,"w") as discard_file:
+				discard_file.write("MSA have been discarded because the ratio between conserved species (at least partially) and considered species is inferior to the specified ratio threshold : "+str(in_ratio))
+		elif in_focusList!=None:
+			total=float(len(in_focusList))
+			conserved=0
+			for species in in_focusList:
+				if not species in record_dict.keys():
+					raise ValueError('One of species name specified in -focus argument does not exists')
+				elif species in alnScore.means.keys():
+					conserved+=1
+			if float(conserved)/total<in_ratio:
+				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
+				with open(discard_path,"w") as discard_file:
+					discard_file.write("MSA have been discarded because the ratio between conserved species (at least partially) and considered species specified in -focus argument is inferior to the specified ratio threshold : "+str(in_ratio))
+		else:
+			with open(out_stat,"w") as statFile:
+				statFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop","mean_score"])+"\n")
+				with open(out_stat_filtered,"w") as filteredStatFile:
+					filteredStatFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop"])+"\n")
+					with open(out_filtered,"w") as outFile:
+						for species in record_dict.keys():
+							if not species in alnScore.means.keys():
+								alnScore.means[species]=-1
+								alnScore.seqs[species]=[-1]*len(alnScore.seq_cons)
+							else:
+								cod_seq=[str(record_dict[species].seq)[3*x:3*x+3] for x in range(0,len(str(record_dict[species].seq))/3)]
+								conserved_dict[species]=[]
+								outFile.write(">"+species+"\n")
 								limLine=0
-						if limLine!=0 : outFile.write("\n")
+								N=str(record_dict[species].seq).count("N")
+								N+=str(record_dict[species].seq).count("n")
+								fs=str(record_dict[species].seq).count("!")
+								gap=str(record_dict[species].seq).count("-")
+								m_qual=alnScore.means[species]
+								if re.match('TAG|TAA|TGA',cod_seq[-1],re.IGNORECASE):
+									end_stop=1
+								else:
+									end_stop=0
+								before_end_stop=0
+								for codon in cod_seq[0:-1]:
+									if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
+										before_end_stop+=1
+								statFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+"\n")
+								for i in range(0,len(cod_seq)):
+									if i in conservedArray: # if the consensus is not of a good quality ==> clipping
+										limLine+=1
+										if alnScore.seqs[species][i]>=tcs_min_each or alnScore.seqs[species][i]==-1:
+											outFile.write(re.sub('!','-',cod_seq[i]))
+											conserved_dict[species]+=[cod_seq[i]]
+										else :
+											outFile.write('NNN')
+											conserved_dict[species]+=['NNN'] # hardmasking for badly aligned sequences
+									if limLine==20:
+										outFile.write("\n")
+										limLine=0
+								if limLine!=0 : outFile.write("\n")
 
-						N=''.join(conserved_dict[species]).count("N")
-						N+=''.join(conserved_dict[species]).count("n")
-						fs=''.join(conserved_dict[species]).count("!")
-						gap=''.join(conserved_dict[species]).count("-")
-						if re.match('TAG|TAA|TGA',conserved_dict[species][-1],re.IGNORECASE):
-							end_stop=1
-						else:
-							end_stop=0
-						before_end_stop=0
-						for codon in conserved_dict[species][0:-1]:
-							if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
-								before_end_stop+=1
-						filteredStatFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop)])+"\n")
-
-
-		newInterval=True
-		start=0
-		line="# Conserved codons (in codon/amino acid index) with aligned sequence as reference (counting gaps)"
-		with open(out_conserved_bed,"w") as outFile:
-			for i in conservedArray:
-				if newInterval:
-					outFile.write(line+"\n")
-					old_i=i
-					newInterval=False
-				else:
-					if i-1!=old_i:
-						newInterval=True
-						line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-						start=i
-					else:
-						old_i=i
-			if not newInterval:
-				line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-			outFile.write(line+"\n")
-
-		i=0
-		line="# exons (in nucleotid index) with unaligned sequence as reference (not counting gaps)"
-		newInterval=True
-		start=0
-
-		with open(out_exon,"w") as outFile:
-			with open("exons.pos") as exonFile:
-				for exonline in exonFile.readlines():
-					exonline=exonline.rstrip()
+								N=''.join(conserved_dict[species]).count("N")
+								N+=''.join(conserved_dict[species]).count("n")
+								fs=''.join(conserved_dict[species]).count("!")
+								gap=''.join(conserved_dict[species]).count("-")
+								if re.match('TAG|TAA|TGA',conserved_dict[species][-1],re.IGNORECASE):
+									end_stop=1
+								else:
+									end_stop=0
+								before_end_stop=0
+								for codon in conserved_dict[species][0:-1]:
+									if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
+										before_end_stop+=1
+								filteredStatFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop)])+"\n")
+			msg="stat_filter FINISHED for :"+in_gene_dir.rstrip('/').split('/')[-1]
+			newInterval=True
+			start=0
+			line="# Conserved codons (in codon/amino acid index) with aligned sequence as reference (counting gaps)"
+			with open(out_conserved_bed,"w") as outFile:
+				for i in conservedArray:
 					if newInterval:
 						outFile.write(line+"\n")
 						old_i=i
-						numExon=exonline
 						newInterval=False
 					else:
-						if exonline!=numExon:
+						if i-1!=old_i:
 							newInterval=True
 							line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
 							start=i
 						else:
 							old_i=i
-					i+=1
-			if not newInterval:
-				line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-			outFile.write(line+"\n")
+				if not newInterval:
+					line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+				outFile.write(line+"\n")
 
-	with open(args.phase_filter,'r') as configFile:
-		filterDict=dict()
-		for line in configFile.readlines():
-			line=line.rstrip()
-			m=re.match('>(.*)',line)
-			if m:
-				filterName=m.group(1)
-				filterDict[filterName]=dict()
-			elif line!='#':
-				lineList=line.split('=')
-				filterDict[filterName][lineList[0]]=lineList[1]
-	for filterName in filterDict.keys():
-		with open(rootedDir.reports+'/'+filterName+'_stat.tab','w') as statFile:
-			statFile.write("\t".join(['kgID','before','after'])+"\n")
-			for kgID in kgPathDict.keys():
-				alnFileName=kgPathDict[kgID]+'/'+filterName+'/codon_aln.fa'
-				alnBlockFileName=kgPathDict[kgID]+'/'+filterName+'/codon_aln_blocks.fa'
-				if os.path.isfile(alnFileName) and os.path.isfile(alnBlockFileName):
-					with open(alnFileName) as alnFile:
-						line=alnFile.readline()
-						line=alnFile.readline()
-						beforeLen=str(len(line.rstrip()))
-					with open(alnBlockFileName) as alnBlockFile:
-						line=alnBlockFile.readline()
-						line=alnBlockFile.readline()
-						afterLen=str(len(line.rstrip()))
-				else:
-					afterLen='NA'
-					beforeLen='NA'
-				statFile.write("\t".join([kgID,beforeLen,afterLen])+"\n")
+			i=0
+			line="# exons (in nucleotid index) with unaligned sequence as reference (not counting gaps)"
+			newInterval=True
+			start=0
+
+			with open(out_exon,"w") as outFile:
+				with open("exons.pos") as exonFile:
+					for exonline in exonFile.readlines():
+						exonline=exonline.rstrip()
+						if newInterval:
+							outFile.write(line+"\n")
+							old_i=i
+							numExon=exonline
+							newInterval=False
+						else:
+							if exonline!=numExon:
+								newInterval=True
+								line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+								start=i
+							else:
+								old_i=i
+						i+=1
+				if not newInterval:
+					line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+				outFile.write(line+"\n")
+		return(msg)
+
+	from multiprocessing import Pool
+	
+	pool=Pool(processes=cpu)
+	jobs=[]
+	for kgID in kgPathDict.keys():
+		if args.v: 
+			out_logger("stat_filter: initiate job for "+kgID+" in "+kgPathDict[kgID])
+		jobs.append(pool.apply_async(tcs_filter_and_stats,args=(kgPathDict[kgID],)))
+	finishedIndex=[]
+
+	while len(finishedIndex)!=len(jobs):
+		for i in range(0,len(jobs)):
+			if not i in finishedIndex:
+				if jobs[i].ready():
+					if not jobs[i].successful():
+						err_logger("stat_filter: ERROR failed job for : "+kgPathDict.keys()[i])
+						sys.stderr(jobs[i].get(5))
+						sys.exit(1)
+					else:
+						if args.v : out_logger(jobs[i].get(5))
+					finishedIndex.append(i)
+
+	pool.close()
+	pool.join()	
+	
 ### Annotation
 if 'annotate' in modeList:
 	allSymbol=dict()

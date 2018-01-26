@@ -17,7 +17,7 @@ with open('makefile','w') as mf:
 	mf.write("INSTALLPATH="+os.path.abspath(args.install_path)+"\n")
 	mf.write("PICARD="+os.path.abspath(args.picard)+"\n")
 	mf.write("MACSE="+os.path.abspath(args.macse)+"\n")
-	mf.write("QUEUE="+os.path.abspath(args.queue)+"\n\n")
+	mf.write("QUEUE="+args.queue+"\n\n")
 	mfin=open("makefile.in")
 	mf.write(mfin.read())
 	mfin.close()

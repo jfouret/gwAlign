@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
- version='SEDMATCHGITVERSION'
+version='SEDMATCHGITVERSION'
 year=2016
 author='Julien Fouret'
 contact='julien.fouret12@uniagro.fr'
@@ -134,7 +134,7 @@ alnProc=submit(command)
 if alnProc['err']!='':
 	command='java -Xmx'+args.boost_mem+'g -jar '+args.macse+' -prog alignSequences -seq ref.fa -seq_lr aligned.fa -stop 5000 -stop_lr 10000 -fs '+str(100*len(speciesList))+" -fs_lr 10"
 	# ADD LINE FOR SUBMITTING (change upype) !!!
-	schedule(command,"reScheduled_"+kgID,mem=boost_mem+"g")
+	schedule(command,"reScheduled_"+kgID,mem=args.boost_mem+"g")
 	with open ('error.txt','a') as errFile:
 		errFile.write(alnProc['err'])
 		sys.stderr.write('# INFO This error was saved : '+args.gene_dir+"/error.txt\n")

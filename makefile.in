@@ -1,6 +1,7 @@
 # DO NOT CHANGE
 
 SHELL=bash
+repo=$(shell pwd)
 GITVERSION=$(shell git describe --tags | sed 's/^v//g')
 progs = gwAlign-Extend gwAlign-Unify bam2consensus.py alignCDS.py
 bins=$(addprefix bin/,$(progs))
@@ -22,22 +23,22 @@ bin :
 
 .PHONY : install
 install : 
-	ln -s ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
-	ln -s ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
-	ln -s ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
-	ln -s ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+	ln -s ${repo}/bin/gwAlign-Extend ${INSTALLPATH}
+	ln -s ${repo}/bin/gwAlign-Unify ${INSTALLPATH}
+	ln -s ${repo}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -s ${repo}/bin/alignCDS.py ${INSTALLPATH}
 
 .PHONY : force_install
 force_install : $(bins)
-	ln -sf ${GITREPO}/bin/gwAlign-Extend ${INSTALLPATH}
-	ln -sf ${GITREPO}/bin/gwAlign-Exons2annoCDS ${INSTALLPATH}
-	ln -sf ${GITREPO}/bin/bam2consensus.py ${INSTALLPATH}
-	ln -sf ${GITREPO}/bin/alignCDS.py ${INSTALLPATH}
+	ln -sf ${repo}/bin/gwAlign-Extend ${INSTALLPATH}
+	ln -sf ${repo}/bin/gwAlign-Unify ${INSTALLPATH}
+	ln -sf ${repo}/bin/bam2consensus.py ${INSTALLPATH}
+	ln -sf ${repo}/bin/alignCDS.py ${INSTALLPATH}
 
 .PHONY : uninstall
 uninstall : 
 	rm ${INSTALLPATH}/gwAlign-Extend
-	rm ${INSTALLPATH}/gwAlign-Exons2annoCDS
+	rm ${INSTALLPATH}/gwAlign-Unify
 	rm ${INSTALLPATH}/alignCDS.py
 	rm ${INSTALLPATH}/bam2consensus.py 
 	
