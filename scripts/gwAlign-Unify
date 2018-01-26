@@ -219,7 +219,7 @@ if 'create' in modeList:
 		m=rehg19Exon1.match(line.rstrip())
 		if m:
 			if args.v:
-				print('##Create_dirs## '+line)
+				out_logger('create - Create_dir '+line)
 			kgID=m.group(1)+m.group(2)
 			path=rootedDir.results+"/"+kgID
 			kgPathDict[kgID]=path
@@ -661,7 +661,7 @@ elif 'stat_filter' in modeList:
 					if not jobs[i].successful():
 						err_logger("stat_filter: ERROR failed job for : "+kgPathDict.keys()[i])
 						sys.stderr(jobs[i].get(5))
-						sys.exit(1)
+						#sys.exit(1)
 					else:
 						if args.v : out_logger(jobs[i].get(5))
 					finishedIndex.append(i)
