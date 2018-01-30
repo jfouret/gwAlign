@@ -660,7 +660,7 @@ elif 'stat_filter' in modeList:
 
 	pool.close()
 	while len(jobs)!=0:
-		for i in range(0,cpu+1):
+		for i in range(0,min(cpu+1,len(jobs))):
 			if jobs[i].ready():
 				outjob=jobs[i].get(5)
 				if outjob["err"]=="":
