@@ -551,7 +551,7 @@ elif 'stat_filter' in modeList:
 				with open(out_stat,"w") as statFile:
 					statFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop","mean_score"])+"\n")
 					with open(out_stat_filtered,"w") as filteredStatFile:
-						filteredStatFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop"])+"\n")
+						filteredStatFile.write("\t".join(["species","N","gap","fs"])+"\n")
 						with open(out_filtered,"w") as outFile:
 							for species in record_dict.keys():
 								if not species in alnScore.means.keys():
@@ -597,15 +597,7 @@ elif 'stat_filter' in modeList:
 									N+=''.join(conserved_dict[species]).count("n")
 									fs=''.join(conserved_dict[species]).count("!")
 									gap=''.join(conserved_dict[species]).count("-")
-									if re.match('TAG|TAA|TGA',conserved_dict[species][-1],re.IGNORECASE):
-										end_stop=1
-									else:
-										end_stop=0
-									before_end_stop=0
-									for codon in conserved_dict[species][0:-1]:
-										if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
-											before_end_stop+=1
-									filteredStatFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop)])+"\n")
+									filteredStatFile.write("\t".join([species,str(N),str(gap),str(fs)])+"\n")
 				msg="stat_filter FINISHED for :"+in_gene_dir.rstrip('/').split('/')[-1]
 				newInterval=True
 				start=0
