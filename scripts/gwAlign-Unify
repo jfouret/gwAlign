@@ -531,6 +531,10 @@ elif 'stat_filter' in modeList:
 				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
 				with open(discard_path,"w") as discard_file:
 					discard_file.write("MSA have been discarded because the ratio between conserved species (at least partially) and considered species is inferior to the specified ratio threshold : "+str(in_ratio))
+			elif len(conservedArray)==0:
+				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
+				with open(discard_path,"w") as discard_file:
+					discard_file.write("MSA have been discarded because no columns were above the TCS threshold :"+str(tcs_min_cons))
 			elif in_focusList!=None:
 				total=float(len(in_focusList))
 				conserved=0
@@ -585,7 +589,6 @@ elif 'stat_filter' in modeList:
 											outFile.write("\n")
 											limLine=0
 									if limLine!=0 : outFile.write("\n")
-
 									N=''.join(conserved_dict[species]).count("N")
 									N+=''.join(conserved_dict[species]).count("n")
 									fs=''.join(conserved_dict[species]).count("!")
@@ -659,6 +662,7 @@ elif 'stat_filter' in modeList:
 		jobs.append(pool.apply_async(tcs_filter_and_stats,args=(kgPathDict[kgID],)))
 
 	pool.close()
+
 	while len(jobs)!=0:
 		for i in range(0,min(cpu+1,len(jobs))):
 			if jobs[i].ready():
@@ -670,6 +674,7 @@ elif 'stat_filter' in modeList:
 					#sys.exit(1)
 				del jobs[i]
 				if args.v : out_logger("stat_filter -- "+str(len(jobs))+" jobs left")
+				break
 
 	
 	pool.join()	
