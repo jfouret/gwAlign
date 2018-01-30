@@ -572,10 +572,13 @@ elif 'stat_filter' in modeList:
 									else:
 										end_stop=0
 									before_end_stop=0
-
+									oldcodon=None
 									for codon in list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[0:-1]:
-										if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
+										if oldcodon==None:
+											oldcodon=codon
+										elif ( (oldcodon+codon).count('!')==3 and re.match('TAG|TAA|TGA',re.sub('!','',oldcodon+codon),re.IGNORECASE)):
 											before_end_stop+=1
+											oldcodon=codon
 									statFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+"\n")
 									for i in range(0,len(cod_seq)):
 										if i in conservedArray: # if the consensus is not of a good quality ==> clipping
