@@ -491,7 +491,7 @@ elif 'stat_filter' in modeList:
 		parser.add_argument('-dna', metavar='filename', required=False,default="./tcs_eval/dna.fa", help="score_ascii TCS file (t_coffee)")
 		parser.add_argument('-v',required=False,action='store_true',help="verbose")
 		"""
-
+		import itertools
 		import os
 		import re
 		import sys
@@ -567,12 +567,13 @@ elif 'stat_filter' in modeList:
 									fs=str(record_dict[species].seq).count("!")
 									gap=str(record_dict[species].seq).count("-")
 									m_qual=alnScore.means[species]
-									if re.match('TAG|TAA|TGA',cod_seq[-1],re.IGNORECASE):
+									if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
 										end_stop=1
 									else:
 										end_stop=0
 									before_end_stop=0
-									for codon in cod_seq[0:-1]:
+
+									for codon in list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[0:-1]:
 										if re.match('TAG|TAA|TGA',codon,re.IGNORECASE):
 											before_end_stop+=1
 									statFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+"\n")
