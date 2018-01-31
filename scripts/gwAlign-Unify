@@ -37,6 +37,9 @@ mode:align          re-align all CDS with a coding-aware method
 mode:compute_TCS    Compute TCS (Transitive consistency score) with
                     t_coffee for each alignment
 -------------------------------------------------------------------
+mode:blast_search   Search in Trembl and sp the sequence from the
+                    reference species to associate an id.            
+-------------------------------------------------------------------
 mode:stat_filter    Use TCS score to filter MSA and to produce 
                     statistics on sequence qualities by species.
 -------------------------------------------------------------------
@@ -71,13 +74,16 @@ default='10,3,256'""")
 
 parser.add_argument('-keep',action='store_true', help="[align/compute_TCS] Only files with missing target (subsequent errors)")
 
-parser.add_argument('-name', metavar='name' , required=False, help="""[stat_filter] mysql host for ucsc database 
+parser.add_argument('-name', metavar='name' , required=False, help="""[stat_filter] sub-folder with fitered data 
 (default='default_filter')""",default='default_filter')
 parser.add_argument('-host', metavar='IP' , required=False, help="""[annotate] mysql host for ucsc database 
 (default='10.0.0.200')""",default='10.0.0.200')
 parser.add_argument('-port', metavar='PORT' , required=False, help="""[annotate]mysql port for ucsc database
 (default='3306')""",default='3306')
 
+parser.add_argument('-blast_db', metavar='path', required=False, help="""[blast_search] Blast database
+with Trembl and Sprot sequences from ref species
+(default=None)""",default=None)
 
 parser.add_argument('-cpu', metavar='N', default='1', help="""[stat_filter] Number of cpu to be used
 (default='1')""")
@@ -409,6 +415,41 @@ elif 'compute_TCS' in modeList:
 		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
 		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
 	rootedDir.finishSerializer("gwAlign_compute_TCS")
+elif 'blast_search' in modeList:
+	if args.v : out_logger(" Entering mode blast_search")
+	if args.blast_db == None:
+		err_logger(" blast_search - argument -blast_db ")
+		sys.exit(1)
+	blast_db=os.path.abspath(args.blast_db)
+	rootedDir.addCommand("blastp","blastp","blastp -version | grep 'blastp: ' | sed 's/blastp: //g'")
+	rootedDir.addCommand("t_coffee","t_coffee","t_coffee -version | sed 's/PROGRAM: T-COFFEE //g'")
+	Nlim=int(args.batchLim)
+	rootedDir.addSerializer("gwAlign_blast_search",Nlim,queue=args.queue,ncpus='1',mem="2gb",workdir=rootedDir.results)
+	for key in kgPathDict.keys():
+		cmdList=list()
+		optTranslate={
+			'-action':'+translate',
+			'-in':'ref.fa',
+			'-output':"fasta_aln"
+		}
+		posTranslate=["> ref_tr.fa"]
+		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,subprogram="-other_pg seq_reformat",positionals=posTranslate,wd=kgPathDict[key]))
+		optBlast={
+			'-query':'ref_tr.fa', 
+			'-db':blast_db,
+			'-use_sw_tback':'', 
+			'-seg':'no',
+			'-outfmt':'5',
+			'-max_hsps_per_subject':'1', 
+			'-max_target_seqs':'5'
+		}
+		posBlast=["> ref_blast.xml"]
+		cmdList.append(rootedDir.getCommand("blastp",options=optBlast,positionals=posBlast,wd=kgPathDict[key]))
+		rootedDir.serialize("gwAlign_blast_search",cmdList)
+	rootedDir.finishSerializer("gwAlign_blast_search")
+
+
+
 elif 'stat_filter' in modeList:
 
 	if args.v : out_logger(" Entering mode stat_filter")
