@@ -538,11 +538,107 @@ elif 'stat_filter' in modeList:
 		import sys
 		from Bio import SeqIO
 		from upype import mkdirp
+		from Bio.SubsMat import MatrixInfo
+		blosum = MatrixInfo.blosum62 # used as blosum[('A', 'A')]
+		allowedAA=['C','S','T','P','A','G','N','D','E','Q','H','R','K','M','I','L','V','F','Y','W']
 
+		def score_matrix(pair):
+			global blosum
+			if pair not in matrix:
+				return matrix[(tuple(reversed(pair)))]
+			else:
+				return matrix[pair]
+
+		def score_spec(nucl_ref,nucl_spec): # compute blossum62 score
+			
+			nucl_ref=nucl_ref.upper()
+			nucl_spec=nucl_spec.upper()
+
+			if not nucl_spec in allowedAA:
+				minScore=100
+				for AA in allowedAA:
+					if score_matrix((nucl_ref,AA))<minScore
+						minScore=score_matrix((nucl_ref,AA))
+				return(minScore)
+			else:
+				return(score_matrix((nucl_ref,nucl_spec)))
 
 
 		os.chdir(in_gene_dir)
 		mkdirp(in_name)
+
+		re_title=re.compile('^>(tr|sp)\|(.*)\|(.*)_[\S]+ ([^=]*)( [^=]+=*)')
+		err=""
+		msg=""
+		maxscore=0
+		from Bio.Blast import NCBIXML
+			result=open("ref_blast.xml","r")
+			records= NCBIXML.parse(result)
+			item=next(records)
+			for alignment in item.alignments:
+				for hsp in alignment.hsps:
+					m=re_title.match(alignment.title)
+					if !m:
+						err="A blast database entry is not recognized for: "+in_gene_dir.rstrip('/').split('/')[-1]
+		  				return({"out":msg,"err":err})
+		  			#gene_name=m.group(3)
+		  			#long_name=m.group(4)
+					if hsp.score>maxscore:
+		  				subject_id=m.group(2)
+		  				query_aln=hsp.query
+		  			elif hsp.score>maxscore:
+		  				db_type=m.group(1) # tr or sp
+		  				if db_type=='sp':
+		  					subject_id=m.group(2)
+		  					query_aln=hsp.query
+
+
+		prot_uniprot2ref=[0] # 1-based
+		i=1
+		for aa in query_aln:
+			if ((aa!='-')and(aa!='!')and(aa!='?')):
+				prot_uniprot2ref.append(i)
+			i+=1
+
+		import requests,json
+
+		requestURL = "https://www.ebi.ac.uk/proteins/api/features/"+subject_id+"?types=INIT_MET%2CDISULFID%2CCROSSLNK%2CACT_SITE%2CMETAL%2CBINDING"
+
+		r = requests.get(requestURL, headers={ "Accept" : "application/json"})
+
+		if not r.ok:
+			err="EBI API request failed for: "+in_gene_dir.rstrip('/').split('/')[-1]
+			return({"out":msg,"err":err})
+
+		uniprot_dict=json.load(r.text)
+		features = uniprot_dict["features"]
+
+
+		uniprot_seq=uniprot_dict["sequence"] # to check wether aa is well aligned in human without fs
+
+		#DISULFID COORD
+		# begin of disulfid is the first cystein in a 1-based
+		# end of disulfid is the second cystein in a 1-based
+
+		#CROSSLNK COORD
+		# IDEM for intrachain 
+		# start=end in 1-based for inter-chain
+
+		#Site COORD are 1-based
+
+		feat_dict={
+			"INIT_MET"=[],
+			"DISULFID"=[],
+			"CROSSLNK"=[],
+			"ACT_SITE"=[],
+			"METAL"=[],
+			"BINDING"=[]
+		}
+
+		for feat in features:
+			feat_dict[feat["type"]].append(int(feat["start"]))
+			if feat["start"]!=feat["end"]:
+				feat_dict[feat["type"]].append(int(feat["end"]))
 
 		out_filtered=in_name+"/"+in_out_filtered
 		out_conserved_bed=in_name+"/"+in_out_conserved_bed
@@ -550,14 +646,20 @@ elif 'stat_filter' in modeList:
 		out_stat=in_out_stat
 		out_stat_filtered=in_name+"/"+in_out_stat
 		discard_path=in_name+"/discard.txt"
-		err=""
-		msg=""
+		
 		try:
 			alnScore=score(in_tcs_score)
 			record_dict = SeqIO.to_dict(SeqIO.parse(in_dna, "fasta"))
 			conserved_dict=dict()
 			tcs_min_cons=int(in_tcs_min_cons)
 			tcs_min_each=int(in_tcs_min_each)
+
+			dna_ref2aln=[0] # 1-based
+			i=1
+			for nucl in str(record_dict[in_ref].seq):
+				if ((nucl!='-')and(nucl!='!')and(nucl!='?')):
+					dna_ref2aln.append(i)
+				i+=1
 
 			conservedArray=[]
 			for i in range(0,len(alnScore.seq_cons)):
@@ -608,6 +710,11 @@ elif 'stat_filter' in modeList:
 									fs=str(record_dict[species].seq).count("!")
 									gap=str(record_dict[species].seq).count("-")
 									m_qual=alnScore.means[species]
+
+
+									# TODO Compute feature scores !
+
+
 									if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
 										end_stop=1
 									else:
