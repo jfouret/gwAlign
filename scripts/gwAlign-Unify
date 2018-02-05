@@ -787,7 +787,7 @@ elif 'stat_filter' in modeList:
 													if aa_uniprot!='C':
 														tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
 													if aa_ref!='C' and aa_ref!='-' :
-														tmp_err+="Ref seqeunce is not a C but a "+aa_ref+"\n"
+														tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
 													if tmp_err!="":
 														tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
 													err+=tmp_err
@@ -838,7 +838,7 @@ elif 'stat_filter' in modeList:
 																		if aa_uniprot!='C':
 																			tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
 																		if aa_ref!='C' and aa_ref!='-' :
-																			tmp_err+="Ref seqeunce is not a C but a "+aa_ref+"\n"
+																			tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
 																		if tmp_err!="":
 																			tmp_err=" WARNING - DISULFID CHECKPOINT (on filtered CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
 																		err+=tmp_err
