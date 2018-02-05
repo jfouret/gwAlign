@@ -57,7 +57,7 @@ parser.add_argument('-debug',action='store_true', help="[all] more verbose")
 parser.add_argument('-al', metavar='/path', required=False, help="[create/getCDS] alignment file in fasta format ")
 parser.add_argument('-spec', metavar='/path' , required=False, help="""[getCDS] tab file with assemblies info (name:path) 
 (with .dict and .fai)""")
-parser.add_argument('-ref', metavar='name', required=False, help="""[create/align/compute_TCS] reference species for multiple alignment 
+parser.add_argument('-ref', metavar='name', required=False, help="""[create/align/compute_TCS/stat_filter] reference species for multiple alignment 
 mode annotate hase been design and tested only for hg19
 (default='hg19')""",default='hg19')
 
@@ -397,23 +397,24 @@ elif 'compute_TCS' in modeList:
 	rootedDir.addSerializer("gwAlign_compute_TCS",Nlim,queue=args.queue,ncpus='2',mem="2gb",workdir=rootedDir.results)
 	for key in kgPathDict.keys():
 		mkdirp(kgPathDict[key]+'/tcs_eval')
-		cmdList=["ln -sf "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
-		optTranslate={
-			'-action':'+translate',
-			'-in':'dna.fa',
-			'-output':"fasta_aln"
-		}
-		posTranslate=["> translated_dna.fa"]
-		cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,subprogram="-other_pg seq_reformat",positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
-		optTCS={
-			'-infile':'translated_dna.fa',
-			'-evaluate':'',
-			'-output':"score_ascii",
-			'-master':args.ref,
-			'-n_core':'2'
-		}
-		cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
-		rootedDir.serialize("gwAlign_compute_TCS",cmdList)
+		if not (args.keep and os.path.isfile(kgPathDict[key]+'/tcs_eval/translated_dna.score_ascii')):
+			cmdList=["ln -sf "+kgPathDict[key]+"/ref_macse_NT.fasta "+kgPathDict[key]+'/tcs_eval/dna.fa']
+			optTranslate={
+				'-action':'+translate',
+				'-in':'dna.fa',
+				'-output':"fasta_aln"
+			}
+			posTranslate=["> translated_dna.fa"]
+			cmdList.append(rootedDir.getCommand("t_coffee",options=optTranslate,subprogram="-other_pg seq_reformat",positionals=posTranslate,wd=kgPathDict[key]+'/tcs_eval'))
+			optTCS={
+				'-infile':'translated_dna.fa',
+				'-evaluate':'',
+				'-output':"score_ascii",
+				'-master':args.ref,
+				'-n_core':'2'
+			}
+			cmdList.append(rootedDir.getCommand("t_coffee",options=optTCS,wd=kgPathDict[key]+'/tcs_eval'))
+			rootedDir.serialize("gwAlign_compute_TCS",cmdList)
 	rootedDir.finishSerializer("gwAlign_compute_TCS")
 elif 'blast_search' in modeList:
 	if args.v : out_logger(" Entering mode blast_search")
