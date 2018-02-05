@@ -635,8 +635,12 @@ elif 'stat_filter' in modeList:
 					aa_query=query_aln[j]
 					aa_subject=subject_aln[j]
 					if ((aa_subject!='-')and(aa_subject!='!')and(aa_subject!='?')):
-						prot_uniprot2ref.append(i)
-					if ((aa_query!='-')and(aa_query!='!')and(aa_query!='?')):
+						if ((aa_query!='-')and(aa_query!='!')and(aa_query!='?')):
+							prot_uniprot2ref.append(i)
+							i+=1
+						else:
+							prot_uniprot2ref.append(-1) # joker to ignore
+					elif ((aa_query!='-')and(aa_query!='!')and(aa_query!='?')) :
 						i+=1
 
 				import requests,json
@@ -767,25 +771,26 @@ elif 'stat_filter' in modeList:
 											aa_uniprot=uniprot_seq[aa_pos_uniprot_ref-1].upper()
 
 											aa_pos_ref=prot_uniprot2ref[aa_pos_uniprot_ref]
-											aln_cod_start=dna_ref2aln[(aa_pos_ref)*3] -3 # to switch from 1-based to 0-based !
-											aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
+											if aa_pos_ref!=-1:
+												aln_cod_start=dna_ref2aln[(aa_pos_ref)*3] -3 # to switch from 1-based to 0-based !
+												aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
 
-											if aa_ref==aa_uniprot:
-												aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
-												if aa_spec!='X':
-													raw_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
+												if aa_ref==aa_uniprot:
+													aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
+													if aa_spec!='X':
+														raw_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
 
-											### VERY USEFUL CTRL LINES
-											if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
-												tmp_err=""
-												# Check if it is C ok ?
-												if aa_uniprot!='C':
-													tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
-												if aa_ref!='C' and aa_ref!='-' :
-													tmp_err+="Ref seqeunce is not a C but a "+aa_ref+"\n"
-												if tmp_err!="":
-													tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
-												err+=tmp_err
+												### VERY USEFUL CTRL LINES
+												if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
+													tmp_err=""
+													# Check if it is C ok ?
+													if aa_uniprot!='C':
+														tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
+													if aa_ref!='C' and aa_ref!='-' :
+														tmp_err+="Ref seqeunce is not a C but a "+aa_ref+"\n"
+													if tmp_err!="":
+														tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
+													err+=tmp_err
 											###
 										feat_line+="\t"+str(raw_scores[f_type][species])
 									if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
