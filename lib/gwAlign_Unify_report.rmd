@@ -1,0 +1,388 @@
+---
+title: "Exome assembly report"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: united
+---
+
+```{r include=FALSE,cache=TRUE}
+knitr::opts_chunk$set(echo = F,eval=T,warning = F,error = F,fig.align='center')
+```
+
+
+```{r import,echo=FALSE,eval=TRUE,message=F}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+# Naming convention for -mode annotate (only UCSC-based)
+
+In case where alignment datas were downloaded from UCSC (University of California Santa Cruz) ftp server, built with hg19 or mm10 as reference, each alignment refers to a gene linked to a known gene ID (kgID) by default. To make it more understandable kgID were turned into gene name through cross-reference in UCSC mySQL database. However, it is not always possible to link one-to-one kgID with an official gene nomeclature. To answer this limitation different gene naming scheme were defined and are presented below in the order of priority and with the prefix associated to it. MySql fields used to recover these ids in a local version of UCSC database are in the table.
+
+Name    |prefix	|Description                                                    |UCSC MySql field
+--------|-------|---------------------------------------------------------------|--------------------------
+HGNC	  |	      |HUGO(Human Genome Organisation) Gene Nomenclature Committee    |proteome.hgncXref.symbol
+kgName	|kg_	  |default name given in UCSC database                            |hg19.kgXref.geneSymbol
+UniProt	|sp_	  |UniProt accession id, spID                                     |hg19.kgXref.spID
+RefSeq	|rs_	  |NCBI Reference Sequence                                        |hg19.kgXref.refseq
+
+If, despite the use of 4 different databases, some kgID are still not associated with a name. They are going to be called NoName_# with # an iterative number.
+
+knowCanonical is a subset of UCSC known genes and identifies the canonical isoform of each cluster ID, or gene. Generally, this is the longest isoform. But two different knowGene can have the same the same IDs, this is due to the definition of clusters and to the redundancy of names across all databases.
+
+In order to avoid repeated names, the prefix dup#_ is added from the second apparition of a name, with # an iterative number.
+
+# Exome-wide CDS MSA quality assesment : RAW unfiltered MSA
+
+```{r get_data,cache=TRUE}
+
+data=read.delim("kgPathDictFile.tab",header = F,row.names = 1)
+names(data)=c("path")
+
+readStat=function(path){
+  statFile=paste(path,"stat.txt",sep='/')
+  if (file.exists(statFile)){
+    tmp=read.delim(statFile,header=T,as.is=T)
+    tmp$gene_id=gsub("^.*/","",gsub("/$","",path))
+  }else{
+    tmp=NULL
+  }
+  return(tmp)
+}
+
+# open efficiently more than 20000 files
+data_stat = lapply(data$path, readStat) %>% bind_rows()
+
+```
+
+```{r}
+
+data_stat[is.na(data_stat)]=0
+data_stat_byspec=data_stat[, names(data_stat) != "gene_id"]  %>% group_by(species) %>% summarise_each(funs(sum))
+
+df=data.frame(data_stat_byspec)
+row.names(df)=data_stat_byspec$species
+df$species=NULL
+
+data_stat_byspec_ggplot=gather(data_stat_byspec,"type","value",2:13)
+
+# Classic PCA scaled and centered
+pca=prcomp(df,center = T,scale. = T)
+
+
+# percentage of information
+info_per=signif(100*pca$sdev/sum(pca$sdev),digits=3)
+
+# z-score first axis 
+species_order=pca$x[,1][order(pca$x[,1])]
+species_level=names(species_order)
+ 
+# load ggplot2
+library(ggplot2)
+
+# create data frame with scores
+scores = as.data.frame(pca$x)
+
+# plot of observations
+plot_ind=ggplot(data = scores, aes(x = PC1, y = PC2, label = rownames(scores))) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_text(colour = "black", alpha = 0.8, size = 4) +
+  ggtitle("PCA plot for genome-wide CDS-based MSA qualities")
+
+
+# function to create a circle
+circle <- function(center = c(0, 0), npoints = 100) {
+    r = 1
+    tt = seq(0, 2 * pi, length = npoints)
+    xx = center[1] + r * cos(tt)
+    yy = center[1] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+corcir = circle(c(0, 0), npoints = 100)
+
+# create data frame with correlations between variables and PCs
+correlations = as.data.frame(cor(df, pca$x))
+
+# data frame with arrows coordinates
+arrows = data.frame(x1 = c(0, 0, 0, 0,0,0,0,0,0,0,0,0), y1 = c(0, 0, 0, 0,0,0,0,0,0,0,0,0), x2 = correlations$PC1, 
+    y2 = correlations$PC2)
+
+# geom_path will do open circles
+plot_var=ggplot() + geom_path(data = corcir, aes(x = x, y = y), colour = "gray65") + 
+    geom_segment(data = arrows, aes(x = x1, y = y1, xend = x2, yend = y2), colour = "gray65") + 
+    geom_text(data = correlations, aes(x = PC1, y = PC2, label = rownames(correlations))) + 
+    geom_hline(yintercept = 0, colour = "gray65") + geom_vline(xintercept = 0, 
+    colour = "gray65") + xlim(-1.1, 1.1) + ylim(-1.1, 1.1) + labs(x = "pc1 aixs", 
+    y = "pc2 axis") + ggtitle("Circle of correlations")
+
+data_stat_byspec_ggplot$species=factor(data_stat_byspec_ggplot$species,levels = species_level)
+
+# Finally plot all informations in facets
+plot_all=ggplot(data_stat_byspec_ggplot,aes(species,value,fill=species))+
+  geom_bar(stat="identity")+
+  theme_bw()+
+  guides(fill=F)+
+  facet_grid(type~.,scales = 'free_y')+
+  theme(axis.text.x  = element_text(angle=75,hjust = 1))
+
+```
+
+## Summary of collected statistics
+
+
+```{r}
+knitr::kable(df[species_level,])
+```
+
+### Brief description of those statistics
+
+* `N` is the number of N found on all CDS for a considered species
+* `gap` is the number of gap found on all MSA for a considered species
+* `fs` is the number of frameshift fount on all MSA for a considered species
+* `end_stop` is the number of CDS with a final stop codon for a considered species
+* `before_end_stop` is the number of CDS where there might be a premature stop codon for a considered species
+* `mean_score` is the sum of all mean score for each aligned CDS of a considered species
+
+Then positions were analysed (scored with a blossum62 matrix) for some uniprot features (high constraint). (sums for all CDS by species) 
+
+* `BINDING`
+* `METAL`
+* `ACT_SITE`
+* `DISULFID`
+* `CROSSLNK`
+* `INIT_MET`
+
+## PCA analysis 
+
+### Percentage of information held by each principal component
+
+```{r}
+knitr::kable(data.frame(Explication=paste(info_per,"%"),Component=1:length(info_per)))
+```
+
+### Species ordered with first component
+
+
+```{r}
+knitr::kable(data.frame(PC1=species_order))
+```
+
+## Graphical representation
+
+### Distribution of species in 1-2 principal components
+
+```{r}
+plot_ind
+```
+
+### Variable correlations to principal components
+
+```{r}
+plot_var
+```
+
+### Summary plot of variables
+
+```{r fig.height=15,fig.width=8}
+plot_all
+```
+
+# Exome-wide CDS MSA quality assesment : TCS-based filtered MSA
+
+## Filtering out
+
+Here are the results of filtering process for the entire alignment
+
+* `TCS_0` filtered out because the TCS score of the MSA is 0 (probably because the reference is alone)
+* `TCS_low` filtered out because no columns was above the threshold
+* `Not_enough_species` filtered out because there was no homology in too many species
+* `Not_enough_focus_species` filtered out because there was no homology in too many focus species
+
+
+```{r get_discard,cache=TRUE}
+
+readDiscard=function(path){
+  discardFile=paste(path,"default_filter/discard.txt",sep='/')
+  if (file.exists(discardFile)){
+    discard = readr::read_file(discardFile)
+    if (grepl('computed TCS score is 0',discard)){
+      reason="TCS_0"
+    }else if (grepl('no columns were above the TCS threshold',discard)){
+      reason="TCS_low"
+    }else if (grepl('the ratio between conserved species \\(at least partially\\) and considered species',discard)){
+      reason="Not_enough_species"
+    }else if (grepl('the ratio between conserved species \\(at least partially\\) and considered species specified in -focus argument',discard)){
+      reason="Not_enough_focus_species"
+    }
+    tmp=data.frame(filter=c(reason),gene_id=c(gsub("^.*/","",gsub("/$","",path))))
+  }else{
+    tmp=data.frame(filter=c("kept"),gene_id=c(gsub("^.*/","",gsub("/$","",path))))
+  }
+  return(tmp)
+}
+
+data_discard = lapply(data$path, readDiscard) %>% bind_rows()
+
+data_discard$filter=as.factor(data_discard$filter)
+
+discard_summary=as.data.frame(summary(data_discard$filter))
+names(discard_summary)=c("Count")
+
+```
+
+```{r}
+knitr::kable(discard_summary)
+```
+
+
+```{r get_data_filter,cache=TRUE}
+
+readStatFilter=function(path){
+  statFile=paste(path,"default_filter/stat.txt",sep='/')
+  if (file.exists(statFile)){
+    tmp=read.delim(statFile,header=T,as.is=T)
+    if (dim(tmp)[1]==0){
+      tmp=NULL
+    }else{
+      tmp$gene_id=gsub("^.*/","",gsub("/$","",path))
+    }
+  }else{
+    tmp=NULL
+  }
+  return(tmp)
+}
+
+# open efficiently more than 20000 files
+data_stat_filter = lapply(data$path, readStatFilter) %>% bind_rows()
+
+```
+
+```{r}
+data_stat_filter[is.na(data_stat_filter)]=0
+data_stat_filter=data_stat_filter[,1:11]
+data_stat_filter_byspec=data_stat_filter[, names(data_stat_filter) != "gene_id"]  %>% group_by(species) %>% summarise_each(funs(sum))
+
+df_filter=data.frame(data_stat_filter_byspec)
+row.names(df_filter)=data_stat_filter_byspec$species
+df_filter$species=NULL
+
+data_stat_filter_byspec_ggplot=gather(data_stat_filter_byspec,"type","value",2:10)
+
+# Classic PCA scaled and centered
+pca_filter=prcomp(df_filter,center = T,scale. = T)
+
+
+# percentage of information
+info_per_filter=signif(100*pca_filter$sdev/sum(pca_filter$sdev),digits=3)
+
+# z-score first axis 
+species_order_filter=pca_filter$x[,1][order(pca_filter$x[,1])]
+species_level_filter=names(species_order_filter)
+```
+```{r}
+# load ggplot2
+library(ggplot2)
+
+# create data frame with scores
+scores_filter = as.data.frame(pca_filter$x)
+
+# plot of observations
+plot_ind_filter=ggplot(data = scores_filter, aes(x = PC1, y = PC2, label = rownames(scores_filter))) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_text(colour = "black", alpha = 0.8, size = 4) +
+  ggtitle("PCA plot for genome-wide CDS-based MSA qualities")
+
+
+# function to create a circle
+circle <- function(center = c(0, 0), npoints = 100) {
+    r = 1
+    tt = seq(0, 2 * pi, length = npoints)
+    xx = center[1] + r * cos(tt)
+    yy = center[1] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+corcir = circle(c(0, 0), npoints = 100)
+
+# create data frame with correlations between variables and PCs
+correlations_filter = as.data.frame(cor(df_filter, pca_filter$x))
+
+# data frame with arrows coordinates
+arrows_filter = data.frame(x1 = c(0, 0, 0,0,0,0,0,0,0), y1 = c(0, 0, 0,0,0,0,0,0,0), x2 = correlations_filter$PC1, 
+    y2 = correlations_filter$PC2)
+
+# geom_path will do open circles
+plot_var_filter=ggplot() + geom_path(data = corcir, aes(x = x, y = y), colour = "gray65") + 
+    geom_segment(data = arrows_filter, aes(x = x1, y = y1, xend = x2, yend = y2), colour = "gray65") + 
+    geom_text(data = correlations_filter, aes(x = PC1, y = PC2, label = rownames(correlations_filter))) + 
+    geom_hline(yintercept = 0, colour = "gray65") + geom_vline(xintercept = 0, 
+    colour = "gray65") + xlim(-1.1, 1.1) + ylim(-1.1, 1.1) + labs(x = "pc1 aixs", 
+    y = "pc2 axis") + ggtitle("Circle of correlations")
+
+data_stat_filter_byspec_ggplot$species=factor(data_stat_filter_byspec_ggplot$species,levels = species_level_filter)
+
+# Finally plot all informations in facets
+plot_all_filter=ggplot(data_stat_filter_byspec_ggplot,aes(species,value,fill=species))+
+  geom_bar(stat="identity")+
+  theme_bw()+
+  guides(fill=F)+
+  facet_grid(type~.,scales = 'free_y')+
+  theme(axis.text.x  = element_text(angle=75,hjust = 1))
+
+```
+
+## Summary of collected statistics
+
+```{r}
+knitr::kable(df_filter[species_level_filter,])
+```
+
+### Brief description of those statistics
+
+As described before but:
+
+> NB : N are added during the filtering process as hardmask for local low quality alignment
+
+## PCA analysis 
+
+### Percentage of information held by each principal component
+
+
+```{r}
+knitr::kable(data.frame(Explication=paste(info_per_filter,"%"),Component=1:length(info_per_filter)))
+```
+
+### Species ordered with first component
+
+```{r}
+knitr::kable(data.frame(PC1=species_order_filter))
+```
+
+## Graphical representation
+
+### Distribution of species in 1-2 principal components
+
+```{r}
+plot_ind_filter
+```
+
+### Variable correlations to principal components
+
+```{r}
+plot_var_filter
+```
+
+### Summary plot of variables
+
+```{r fig.height=8,fig.width=8}
+plot_all_filter
+```
+
+
+
+
