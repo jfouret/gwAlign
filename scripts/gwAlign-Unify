@@ -958,7 +958,8 @@ elif 'report' in modeList:
 	copyfile(rmdFile, rootedDir.reports+"/report.rmd")
 	if os.path.isfile(rootedDir.reports+"/report.html"):
 		os.remove(rootedDir.reports+"/report.html")
-	submit("Rscript -e 'library(knitr);library(markdown);knit(\""+rootedDir.reports+"/report.rmd"+"\");markdownToHTML(\""+rootedDir.reports+"/report.md"+"\",\""+rootedDir.reports+"/report.html"+"\") # creates html file'")
+	submit('Rscript -e "rmarkdown::render(\''+rootedDir.reports+"/report.rmd"+'\')"')
+
 	
 ### Annotation
 if 'annotate' in modeList:
