@@ -448,9 +448,6 @@ elif 'blast_search' in modeList:
 		cmdList.append(rootedDir.getCommand("blastp",options=optBlast,positionals=posBlast,wd=kgPathDict[key]))
 		rootedDir.serialize("gwAlign_blast_search",cmdList)
 	rootedDir.finishSerializer("gwAlign_blast_search")
-
-
-
 elif 'stat_filter' in modeList:
 
 	if args.v : out_logger(" Entering mode stat_filter")
@@ -952,6 +949,16 @@ elif 'stat_filter' in modeList:
 
 	
 	pool.join()	
+elif 'report' in modeList:
+	os.chdir(rootedDir.reports)
+	rmdFile=search_lib('gwAlign_Unify_report.rmd')
+	if os.path.isfile(rootedDir.reports+"/report.rmd"):
+		os.remove(rootedDir.reports+"/report.rmd")
+	from shutil import copyfile
+	copyfile(rmdFile, rootedDir.reports+"/report.rmd")
+	if os.path.isfile(rootedDir.reports+"/report.html"):
+		os.remove(rootedDir.reports+"/report.html")
+	submit("Rscript -e 'library(knitr);library(markdown);knit(\""+rootedDir.reports+"/report.rmd"+"\");markdownToHTML(\""+rootedDir.reports+"/report.md"+"\",\""+rootedDir.reports+"/report.html"+"\") # creates html file'")
 	
 ### Annotation
 if 'annotate' in modeList:

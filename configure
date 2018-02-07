@@ -4,7 +4,8 @@ author='Julien Fouret'
 contact='julien@fouret.me'
 
 parser = argparse.ArgumentParser(description='Configure makefile for installation',epilog="Author : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-install_path', metavar='', required=False,default="/usr/bin/", help="a bin directory present in env $PATH to call executables")
+parser.add_argument('-bin_path', metavar='', required=False,default="/usr/bin/", help="a bin directory present in env $PATH to call executables")
+parser.add_argument('-lib_path', metavar='', required=False,default="/usr/lib/", help="a lib directory present in env $LD_LIBRARY_PATH to call executables")
 parser.add_argument('-picard', metavar='', required=False,default="/export/bin/picard-tools-2.1.0/picard.jar", help="path of picardtools jar file")
 parser.add_argument('-macse', metavar='', required=False,default="/export/source/script/macse_v1.2.jar", help="path of macse jar file")
 parser.add_argument('-queue', metavar='', required=False,default="all", help="default queue to use for HPC")
@@ -14,7 +15,8 @@ args=parser.parse_args()
 import os
 with open('makefile','w') as mf:
 	mf.write("# CAN BE CHANGED\n\n")
-	mf.write("INSTALLPATH="+os.path.abspath(args.install_path)+"\n")
+	mf.write("BINPATH="+os.path.abspath(args.bin_path)+"\n")
+	mf.write("LIBPATH="+os.path.abspath(args.lib_path)+"\n")
 	mf.write("PICARD="+os.path.abspath(args.picard)+"\n")
 	mf.write("MACSE="+os.path.abspath(args.macse)+"\n")
 	mf.write("QUEUE="+args.queue+"\n\n")

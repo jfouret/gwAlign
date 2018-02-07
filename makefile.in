@@ -23,24 +23,26 @@ bin :
 
 .PHONY : install
 install : 
-	ln -s ${repo}/bin/gwAlign-Extend ${INSTALLPATH}
-	ln -s ${repo}/bin/gwAlign-Unify ${INSTALLPATH}
-	ln -s ${repo}/bin/bam2consensus.py ${INSTALLPATH}
-	ln -s ${repo}/bin/alignCDS.py ${INSTALLPATH}
+	ln -s ${repo}/bin/gwAlign-Extend ${BINPATH}
+	ln -s ${repo}/bin/gwAlign-Unify ${BINPATH}
+	ln -s ${repo}/bin/bam2consensus.py ${BINPATH}
+	ln -s ${repo}/bin/alignCDS.py ${BINPATH}
+	ln -s ${repo}/lib/gwAlign_Unify_report.rmd ${LIBPATH}
 
 .PHONY : force_install
 force_install : $(bins)
-	ln -sf ${repo}/bin/gwAlign-Extend ${INSTALLPATH}
-	ln -sf ${repo}/bin/gwAlign-Unify ${INSTALLPATH}
-	ln -sf ${repo}/bin/bam2consensus.py ${INSTALLPATH}
-	ln -sf ${repo}/bin/alignCDS.py ${INSTALLPATH}
+	ln -sf ${repo}/bin/gwAlign-Extend ${BINPATH}
+	ln -sf ${repo}/bin/gwAlign-Unify ${BINPATH}
+	ln -sf ${repo}/bin/bam2consensus.py ${BINPATH}
+	ln -sf ${repo}/bin/alignCDS.py ${BINPATH}
+	ln -sf ${repo}/lib/gwAlign_Unify_report.rmd ${LIBPATH}
 
 .PHONY : uninstall
 uninstall : 
-	rm ${INSTALLPATH}/gwAlign-Extend
-	rm ${INSTALLPATH}/gwAlign-Unify
-	rm ${INSTALLPATH}/alignCDS.py
-	rm ${INSTALLPATH}/bam2consensus.py 
+	rm ${BINPATH}/gwAlign-Extend
+	rm ${BINPATH}/gwAlign-Unify
+	rm ${BINPATH}/alignCDS.py
+	rm ${BINPATH}/bam2consensus.py 
 	
 .PHONY : clean
 clean :
