@@ -517,7 +517,7 @@ elif 'stat_filter' in modeList:
 								else:
 									self.seq_cons+=[intscore(x) for x in list(m.group(2))]
 
-	def tcs_filter_and_stats(in_gene_dir,in_ref=args.ref,in_name=args.name,in_tcs_min_cons=tcs_min_cons,in_tcs_min_each=tcs_min_each,in_out_stat="stat.txt",in_out_filtered="tcs_filtered_aln.fa",in_out_conserved_bed="codon_conserved.bed",in_out_exon="nucl_exon.bed",in_tcs_score="./tcs_eval/translated_dna.score_ascii",in_dna="./tcs_eval/dna.fa",in_focusList=focusList,in_ratio=selectRatio):
+	def tcs_filter_and_stats(in_gene_dir,in_ref=args.ref,in_name=args.name,in_tcs_min_cons=tcs_min_cons,in_tcs_min_each=tcs_min_each,in_out_filtered="tcs_filtered_aln.fa",in_out_conserved_bed="codon_conserved.bed",in_out_exon="nucl_exon.bed",in_tcs_score="./tcs_eval/translated_dna.score_ascii",in_dna="./tcs_eval/dna.fa",in_focusList=focusList,in_ratio=selectRatio):
 		
 		"""
 		parser.add_argument('-gene_dir', metavar='/path', required=False,default='.', help="gene ID directory")
@@ -574,7 +574,7 @@ elif 'stat_filter' in modeList:
 			return(aa_spec)
 
 		os.chdir(in_gene_dir)
-		mkdirp(in_name)
+
 		re_title=re.compile('.*(tr|sp)\|(.*)\|(.*)_[\S]+ ([^=]*)( [^=]+=*)')
 		err=""
 		msg=""
@@ -616,6 +616,7 @@ elif 'stat_filter' in modeList:
 							subject_end=hsp.sbjct_end
 							query_start=hsp.query_start
 							query_end=hsp.query_end
+		outFiles=dict()
 		try:
 
 			feat_dict={
@@ -628,6 +629,7 @@ elif 'stat_filter' in modeList:
 			}
 
 			if subject_id!=None:
+				blast_res=subject_id+"\t"+str(maxscore)
 				i=query_start # sould be first ref pos in the hit
 				prot_uniprot2ref=[0]*subject_start # 1-based with a subject start set
 
@@ -672,15 +674,18 @@ elif 'stat_filter' in modeList:
 									feat_dict[feat["type"]].append(int(feat["end"]))
 					except Exception, e:
 						pass
+			else:
+				blast_res="None\t-1"
 
-			out_filtered=in_name+"/"+in_out_filtered
-			out_conserved_bed=in_name+"/"+in_out_conserved_bed
-			out_exon=in_name+"/"+in_out_exon
-			out_stat=in_out_stat
-			out_stat_filtered=in_name+"/"+in_out_stat
-			discard_path=in_name+"/discard.txt"
-			
-		
+			out_filtered=in_gene_dir+"/"+in_name+"/"+in_out_filtered
+			out_conserved_bed=in_gene_dir+"/"+in_name+"/"+in_out_conserved_bed
+			out_exon=in_gene_dir+"/"+in_name+"/"+in_out_exon
+			out_stat=in_gene_dir+"/"+in_name+"/stat_raw.txt"
+			out_stat_filtered=in_gene_dir+"/"+in_name+"/stat_filtered.txt"
+			discard_path=in_gene_dir+"/"+in_name+"/discard.txt"
+			blast_hit_path=in_gene_dir+"/"+in_name+"/blast.txt"
+			outFiles[blast_hit_path]=blast_res+"\n"
+
 			alnScore=score(in_tcs_score)
 			record_dict = SeqIO.to_dict(SeqIO.parse(in_dna, "fasta"))
 			conserved_dict=dict()
@@ -701,16 +706,13 @@ elif 'stat_filter' in modeList:
 
 			if alnScore.score==0:
 				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
-				with open(discard_path,"w") as discard_file:
-					discard_file.write("MSA have been discarded because the computed TCS score is 0. It could mean that only the reference is there.")
+				outFiles[discard_path]="MSA have been discarded because the computed TCS score is 0. It could mean that only the reference is there."+"\n"
 			elif float(len(alnScore.means.keys()))/float(len(record_dict.keys())) < in_ratio:
 				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
-				with open(discard_path,"w") as discard_file:
-					discard_file.write("MSA have been discarded because the ratio between conserved species (at least partially) and considered species is inferior to the specified ratio threshold : "+str(in_ratio))
+				outFiles[discard_path]="MSA have been discarded because the ratio between conserved species (at least partially) and considered species is inferior to the specified ratio threshold : "+str(in_ratio)+"\n"
 			elif len(conservedArray)==0:
 				msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
-				with open(discard_path,"w") as discard_file:
-					discard_file.write("MSA have been discarded because no columns were above the TCS threshold :"+str(tcs_min_cons))
+				outFiles[discard_path]="MSA have been discarded because no columns were above the TCS threshold :"+str(tcs_min_cons)+"\n"
 			elif in_focusList!=None:
 				total=float(len(in_focusList))
 				conserved=0
@@ -721,195 +723,194 @@ elif 'stat_filter' in modeList:
 						conserved+=1
 				if float(conserved)/total<in_ratio:
 					msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
-					with open(discard_path,"w") as discard_file:
-						discard_file.write("MSA have been discarded because the ratio between conserved species (at least partially) and considered species specified in -focus argument is inferior to the specified ratio threshold : "+str(in_ratio))
+					outFiles[discard_path]="MSA have been discarded because the ratio between conserved species (at least partially) and considered species specified in -focus argument is inferior to the specified ratio threshold : "+str(in_ratio)+"\n"
 			else:
-				with open(out_stat,"w") as statFile:
-					with open(out_stat_filtered,"w") as filteredStatFile:
-						with open(out_filtered,"w") as outFile:
-							raw_scores={
-								"INIT_MET":dict(),
-								"DISULFID":dict(),
-								"CROSSLNK":dict(),
-								"ACT_SITE":dict(),
-								"METAL":dict(),
-								"BINDING":dict()
-							}
-							filtered_scores={
-								"INIT_MET":dict(),
-								"DISULFID":dict(),
-								"CROSSLNK":dict(),
-								"ACT_SITE":dict(),
-								"METAL":dict(),
-								"BINDING":dict()
-							}
-							header_feats="\t".join(raw_scores.keys())
-							filteredStatFile.write("\t".join(["species","N","gap","fs"])+"\t"+header_feats+"\n")
-							statFile.write("\t".join(["species","N","gap","fs","end_stop","before_end_stop","mean_score"])+"\t"+header_feats+"\n")
-							for species in record_dict.keys():
-								if not species in alnScore.means.keys():
-									alnScore.means[species]=-1
-									alnScore.seqs[species]=[-1]*len(alnScore.seq_cons)
-								else:
-									cod_seq=[str(record_dict[species].seq)[3*x:3*x+3] for x in range(0,len(str(record_dict[species].seq))/3)]
-									conserved_dict[species]=[]
-									outFile.write(">"+species+"\n")
-									limLine=0
-									N=str(record_dict[species].seq).count("N")
-									N+=str(record_dict[species].seq).count("n")
-									fs=str(record_dict[species].seq).count("!")
-									gap=str(record_dict[species].seq).count("-")
-									m_qual=alnScore.means[species]
+				outFiles[out_stat]=""
+				outFiles[out_stat_filtered]=""
+				outFiles[out_filtered]=""
+				raw_scores={
+					"INIT_MET":dict(),
+					"DISULFID":dict(),
+					"CROSSLNK":dict(),
+					"ACT_SITE":dict(),
+					"METAL":dict(),
+					"BINDING":dict()
+				}
+				filtered_scores={
+					"INIT_MET":dict(),
+					"DISULFID":dict(),
+					"CROSSLNK":dict(),
+					"ACT_SITE":dict(),
+					"METAL":dict(),
+					"BINDING":dict()
+				}
+				header_feats="\t".join(raw_scores.keys())
+				outFiles[out_stat_filtered]+="\t".join(["species","N","gap","fs"])+"\t"+header_feats+"\n"
+				outFiles[out_stat]+="\t".join(["species","N","gap","fs","end_stop","before_end_stop","mean_score"])+"\t"+header_feats+"\n"
+				for species in record_dict.keys():
+					if not species in alnScore.means.keys():
+						alnScore.means[species]=-1
+						alnScore.seqs[species]=[-1]*len(alnScore.seq_cons)
+					else:
+						cod_seq=[str(record_dict[species].seq)[3*x:3*x+3] for x in range(0,len(str(record_dict[species].seq))/3)]
+						conserved_dict[species]=[]
+						outFiles[out_filtered]+=">"+species+"\n"
+						limLine=0
+						N=str(record_dict[species].seq).count("N")
+						N+=str(record_dict[species].seq).count("n")
+						fs=str(record_dict[species].seq).count("!")
+						gap=str(record_dict[species].seq).count("-")
+						m_qual=alnScore.means[species]
 
-									# TODO Compute feature scores !
-									feat_line=""
-									for f_type in feat_dict.keys():
-										# initiate score to 0
-										raw_scores[f_type][species]=0
-										for aa_pos_uniprot_ref in sorted(set(feat_dict[f_type])):
-											# dna_ref2aln prot_uniprot2ref
-											aa_uniprot=uniprot_seq[aa_pos_uniprot_ref-1].upper()
+						# TODO Compute feature scores !
+						feat_line=""
+						for f_type in feat_dict.keys():
+							# initiate score to 0
+							raw_scores[f_type][species]=0
+							for aa_pos_uniprot_ref in sorted(set(feat_dict[f_type])):
+								# dna_ref2aln prot_uniprot2ref
+								aa_uniprot=uniprot_seq[aa_pos_uniprot_ref-1].upper()
 
-											aa_pos_ref=prot_uniprot2ref[aa_pos_uniprot_ref]
-											if aa_pos_ref!=-1:
-												aln_cod_start=dna_ref2aln[(aa_pos_ref)*3] -3 # to switch from 1-based to 0-based !
-												aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
+								aa_pos_ref=prot_uniprot2ref[aa_pos_uniprot_ref]
+								if aa_pos_ref!=-1:
+									aln_cod_start=dna_ref2aln[(aa_pos_ref)*3] -3 # to switch from 1-based to 0-based !
+									aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
 
-												if aa_ref==aa_uniprot:
-													aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
-													if aa_spec!='X':
-														raw_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
+									if aa_ref==aa_uniprot:
+										aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
+										if aa_spec!='X':
+											raw_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
 
-												### VERY USEFUL CTRL LINES
-												if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
-													tmp_err=""
-													# Check if it is C ok ?
-													if aa_uniprot!='C':
-														tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
-													if aa_ref!='C' and aa_ref!='-' :
-														tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
-													if tmp_err!="":
-														tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
-													err+=tmp_err
-											###
-										feat_line+="\t"+str(raw_scores[f_type][species])
-									if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
-										end_stop=1
-									else:
-										end_stop=0
-									before_end_stop=0
-									oldcodon=None
-									for codon in list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[0:-1]:
-										if oldcodon==None:
-											oldcodon=codon
-										elif ( (oldcodon+codon).count('!')==3 and re.match('TAG|TAA|TGA',re.sub('!','',oldcodon+codon),re.IGNORECASE)):
-											before_end_stop+=1
-											oldcodon=codon
-									statFile.write("\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+feat_line+"\n")
-									for f_type in feat_dict.keys():
-										filtered_scores[f_type][species]=0
-									for i in range(0,len(cod_seq)):
-										if i in conservedArray: # if the consensus is not of a good quality ==> clipping
-											limLine+=1
-											if alnScore.seqs[species][i]>=tcs_min_each or alnScore.seqs[species][i]==-1:
-												outFile.write(re.sub('!','-',cod_seq[i]))
-												conserved_dict[species]+=[cod_seq[i]]
-												# warning i is aln_cod_start
-												aln_cod_start=i*3 
-												if (aln_cod_start+1) in dna_ref2aln: # else there is a !/-/? in ref seq
-													aa_pos_ref=dna_ref2aln.index(aln_cod_start+1)/3
-													if subject_id!=None:
-														if aa_pos_ref in prot_uniprot2ref:
-															aa_pos_uniprot_ref=1+prot_uniprot2ref.index(aa_pos_ref)
-															for f_type in feat_dict.keys():
-																if aa_pos_uniprot_ref in feat_dict[f_type]:
-																	# dna_ref2aln prot_uniprot2ref
-																	aa_uniprot=uniprot_seq[aa_pos_uniprot_ref-1].upper()
-																	aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
+									### VERY USEFUL CTRL LINES
+									if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
+										tmp_err=""
+										# Check if it is C ok ?
+										if aa_uniprot!='C':
+											tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
+										if aa_ref!='C' and aa_ref!='-' :
+											tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
+										if tmp_err!="":
+											tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
+										err+=tmp_err
+								###
+							feat_line+="\t"+str(raw_scores[f_type][species])
+						if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
+							end_stop=1
+						else:
+							end_stop=0
+						before_end_stop=0
+						oldcodon=None
+						for codon in list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[0:-1]:
+							if oldcodon==None:
+								oldcodon=codon
+							elif ( (oldcodon+codon).count('!')==3 and re.match('TAG|TAA|TGA',re.sub('!','',oldcodon+codon),re.IGNORECASE)):
+								before_end_stop+=1
+								oldcodon=codon
+						outFiles[out_stat]+="\t".join([species,str(N),str(gap),str(fs),str(end_stop),str(before_end_stop),str(m_qual)])+feat_line+"\n"
+						for f_type in feat_dict.keys():
+							filtered_scores[f_type][species]=0
+						for i in range(0,len(cod_seq)):
+							if i in conservedArray: # if the consensus is not of a good quality ==> clipping
+								limLine+=1
+								if alnScore.seqs[species][i]>=tcs_min_each or alnScore.seqs[species][i]==-1:
+									outFiles[out_filtered]+=re.sub('!','-',cod_seq[i])
+									conserved_dict[species]+=[cod_seq[i]]
+									# warning i is aln_cod_start
+									aln_cod_start=i*3 
+									if (aln_cod_start+1) in dna_ref2aln: # else there is a !/-/? in ref seq
+										aa_pos_ref=dna_ref2aln.index(aln_cod_start+1)/3
+										if subject_id!=None:
+											if aa_pos_ref in prot_uniprot2ref:
+												aa_pos_uniprot_ref=1+prot_uniprot2ref.index(aa_pos_ref)
+												for f_type in feat_dict.keys():
+													if aa_pos_uniprot_ref in feat_dict[f_type]:
+														# dna_ref2aln prot_uniprot2ref
+														aa_uniprot=uniprot_seq[aa_pos_uniprot_ref-1].upper()
+														aa_ref=getAAFromCodingAlignedString(str(record_dict[in_ref].seq),aln_cod_start)
 
-																	if aa_ref==aa_uniprot:
-																		aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
-																		if aa_spec!='X':
-																			filtered_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
-																	### VERY USEFUL CTRL LINES
-																	if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
-																		tmp_err=""
-																		# Check if it is C ok ?
-																		if aa_uniprot!='C':
-																			tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
-																		if aa_ref!='C' and aa_ref!='-' :
-																			tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
-																		if tmp_err!="":
-																			tmp_err=" WARNING - DISULFID CHECKPOINT (on filtered CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
-																		err+=tmp_err
-																	###
-											else :
-												outFile.write('NNN')
-												conserved_dict[species]+=['NNN'] # hardmasking for badly aligned sequences
-									filtered_feat_line=""
-									for f_type in feat_dict.keys():
-										filtered_feat_line+="\t"+str(filtered_scores[f_type][species])
-										if limLine==20:
-											outFile.write("\n")
-											limLine=0
-									if limLine!=0 : outFile.write("\n")
-									N=''.join(conserved_dict[species]).count("N")
-									N+=''.join(conserved_dict[species]).count("n")
-									fs=''.join(conserved_dict[species]).count("!")
-									gap=''.join(conserved_dict[species]).count("-")
-									filteredStatFile.write("\t".join([species,str(N),str(gap),str(fs)])+filtered_feat_line+"\n")
+														if aa_ref==aa_uniprot:
+															aa_spec=getAAFromCodingAlignedString(str(record_dict[species].seq),aln_cod_start)
+															if aa_spec!='X':
+																filtered_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
+														### VERY USEFUL CTRL LINES
+														if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
+															tmp_err=""
+															# Check if it is C ok ?
+															if aa_uniprot!='C':
+																tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
+															if aa_ref!='C' and aa_ref!='-' :
+																tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
+															if tmp_err!="":
+																tmp_err=" WARNING - DISULFID CHECKPOINT (on filtered CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
+															err+=tmp_err
+														###
+								else :
+									outFiles[out_filtered]+='NNN'
+									conserved_dict[species]+=['NNN'] # hardmasking for badly aligned sequences
+						filtered_feat_line=""
+						for f_type in feat_dict.keys():
+							filtered_feat_line+="\t"+str(filtered_scores[f_type][species])
+							if limLine==20:
+								outFiles[out_filtered]+="\n"
+								limLine=0
+						if limLine!=0 : outFiles[out_filtered]+="\n"
+						N=''.join(conserved_dict[species]).count("N")
+						N+=''.join(conserved_dict[species]).count("n")
+						fs=''.join(conserved_dict[species]).count("!")
+						gap=''.join(conserved_dict[species]).count("-")
+						outFiles[out_stat_filtered]+="\t".join([species,str(N),str(gap),str(fs)])+filtered_feat_line+"\n"
 				msg="stat_filter FINISHED for :"+in_gene_dir.rstrip('/').split('/')[-1]
 				newInterval=True
 				start=0
 				line="# Conserved codons (in codon/amino acid index) with aligned sequence as reference (counting gaps)"
-				with open(out_conserved_bed,"w") as outFile:
-					for i in conservedArray:
-						if newInterval:
-							outFile.write(line+"\n")
-							old_i=i
-							newInterval=False
+				outFiles[out_conserved_bed]=""
+				for i in conservedArray:
+					if newInterval:
+						outFiles[out_conserved_bed]+=line+"\n"
+						old_i=i
+						newInterval=False
+					else:
+						if i-1!=old_i:
+							newInterval=True
+							line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+							start=i
 						else:
-							if i-1!=old_i:
-								newInterval=True
-								line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-								start=i
-							else:
-								old_i=i
-					if not newInterval:
-						line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-					outFile.write(line+"\n")
+							old_i=i
+				if not newInterval:
+					line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+				outFiles[out_conserved_bed]+=line+"\n"
 
 				i=0
 				line="# exons (in nucleotid index) with unaligned sequence as reference (not counting gaps)"
 				newInterval=True
 				start=0
-
-				with open(out_exon,"w") as outFile:
-					with open("exons.pos") as exonFile:
-						for exonline in exonFile.readlines():
-							exonline=exonline.rstrip()
-							if newInterval:
-								outFile.write(line+"\n")
-								old_i=i
-								numExon=exonline
-								newInterval=False
+				outFiles[out_exon]=""
+				with open("exons.pos") as exonFile:
+					for exonline in exonFile.readlines():
+						exonline=exonline.rstrip()
+						if newInterval:
+							outFiles[out_exon]+=line+"\n"
+							old_i=i
+							numExon=exonline
+							newInterval=False
+						else:
+							if exonline!=numExon:
+								newInterval=True
+								line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+								start=i
 							else:
-								if exonline!=numExon:
-									newInterval=True
-									line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-									start=i
-								else:
-									old_i=i
-							i+=1
-					if not newInterval:
-						line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
-					outFile.write(line+"\n")
+								old_i=i
+						i+=1
+				if not newInterval:
+					line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+				outFiles[out_exon]+=line+"\n"
 		except Exception, e:
 			exc_type, exc_value, exc_tb = sys.exc_info()
 			err="\n".join(traceback.format_exception(exc_type, exc_value, exc_tb))
 		if err!="":
 			err="stat_filter: ERROR failed job for :"+in_gene_dir.rstrip('/').split('/')[-1]+"\n"+err
-		return({"out":msg,"err":err})
+
+		return({"msg":msg,"outFiles":outFiles,"err":err,"dir":in_gene_dir+"/"+in_name})
 
 	from multiprocessing import Pool
 	
@@ -927,7 +928,21 @@ elif 'stat_filter' in modeList:
 			if jobs[i].ready():
 				outjob=jobs[i].get(5)
 				if outjob["err"]=="":
-					if args.v : out_logger(outjob["out"])
+					if args.v : out_logger(outjob["msg"])
+					job_work_dir=outjob["dir"]
+
+					if os.path.isdir(job_work_dir):
+						import shutil
+						shutil.rmtree(job_work_dir)
+
+					if args.v :  out_logger(" stat_filter - manager - creating folder "+job_work_dir)
+
+					os.makedirs(job_work_dir)
+
+					for file_path in outjob["outFiles"].keys():
+						with open(file_path,"w") as con:
+							con.write(outjob["outFiles"][file_path])
+
 				else:
 					err_logger(outjob["err"])
 					#sys.exit(1)

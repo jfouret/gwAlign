@@ -44,7 +44,7 @@ data=read.delim("kgPathDictFile.tab",header = F,row.names = 1)
 names(data)=c("path")
 
 readStat=function(path){
-  statFile=paste(path,"stat.txt",sep='/')
+  statFile=paste(path,"default_filter/stat_raw.txt",sep='/')
   if (file.exists(statFile)){
     tmp=read.delim(statFile,header=T,as.is=T)
     tmp$gene_id=gsub("^.*/","",gsub("/$","",path))
@@ -243,7 +243,7 @@ knitr::kable(discard_summary)
 ```{r get_data_filter,cache=TRUE}
 
 readStatFilter=function(path){
-  statFile=paste(path,"default_filter/stat.txt",sep='/')
+  statFile=paste(path,"default_filter/stat_filtered.txt",sep='/')
   if (file.exists(statFile)){
     tmp=read.delim(statFile,header=T,as.is=T)
     if (dim(tmp)[1]==0){
