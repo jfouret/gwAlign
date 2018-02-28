@@ -576,6 +576,7 @@ elif 'stat_filter' in modeList:
 
 		re_title=re.compile('.*(tr|sp)\|(.*)\|(.*)_[\S]+ ([^=]*)( [^=]+=*)')
 		err=""
+		war=""
 		msg=""
 		maxscore=None
 		from Bio.Blast import NCBIXML
@@ -795,15 +796,15 @@ elif 'stat_filter' in modeList:
 
 									### VERY USEFUL CTRL LINES
 									if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
-										tmp_err=""
+										tmp_war=""
 										# Check if it is C ok ?
 										if aa_uniprot!='C':
-											tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
+											tmp_war+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
 										if aa_ref!='C' and aa_ref!='-' :
-											tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
-										if tmp_err!="":
-											tmp_err=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
-										err+=tmp_err
+											tmp_war+="Ref sequence is not a C but a "+aa_ref+"\n"
+										if tmp_war!="":
+											tmp_war=" WARNING - DISULFID CHECKPOINT (on raw CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_war
+										war+=tmp_war
 								###
 							feat_line+="\t"+str(raw_scores[f_type][species])
 						if re.match('TAG|TAA|TGA',list(reversed(list(itertools.dropwhile(lambda x: x == '---', reversed(cod_seq)))))[-1],re.IGNORECASE):
@@ -846,15 +847,15 @@ elif 'stat_filter' in modeList:
 																filtered_scores[f_type][species]+=score_spec(aa_ref,aa_spec)
 														### VERY USEFUL CTRL LINES
 														if f_type=="DISULFID" and species==in_ref and str(record_dict[in_ref].seq).count('!')==0:
-															tmp_err=""
+															tmp_war=""
 															# Check if it is C ok ?
 															if aa_uniprot!='C':
-																tmp_err+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
+																tmp_war+="Uniprot sequence is not a C but a "+aa_uniprot+"\n"
 															if aa_ref!='C' and aa_ref!='-' :
-																tmp_err+="Ref sequence is not a C but a "+aa_ref+"\n"
-															if tmp_err!="":
-																tmp_err=" WARNING - DISULFID CHECKPOINT (on filtered CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_err
-															err+=tmp_err
+																tmp_war+="Ref sequence is not a C but a "+aa_ref+"\n"
+															if tmp_war!="":
+																tmp_war=" WARNING - DISULFID CHECKPOINT (on filtered CDS) (uniprot id: "+subject_id+" [hit start="+str(subject_start)+"] at pos:"+str(aa_pos_uniprot_ref)+") failed:\n"+tmp_war
+															war+=tmp_war
 														###
 								else :
 									outFiles[out_filtered]+='NNN'
@@ -921,8 +922,10 @@ elif 'stat_filter' in modeList:
 			err="\n".join(traceback.format_exception(exc_type, exc_value, exc_tb))
 		if err!="":
 			err="stat_filter: ERROR failed job for :"+in_gene_dir.rstrip('/').split('/')[-1]+"\n"+err
+		if war!="":
+			war="stat_filter: WARNING handled by job for :"+in_gene_dir.rstrip('/').split('/')[-1]+"\n"+war
 
-		return({"msg":msg,"outFiles":outFiles,"err":err,"dir":in_gene_dir+"/"+in_name})
+		return({"msg":msg,"outFiles":outFiles,"err":err,"dir":in_gene_dir+"/"+in_name,"war",war})
 
 	from multiprocessing import Pool
 	
@@ -941,6 +944,7 @@ elif 'stat_filter' in modeList:
 				outjob=jobs[i].get(5)
 				if outjob["err"]=="":
 					if args.v : out_logger(outjob["msg"])
+					out_logger(outjob["war"])
 					job_work_dir=outjob["dir"]
 
 					if os.path.isdir(job_work_dir):
