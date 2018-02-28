@@ -6,6 +6,8 @@ output:
     toc_depth: 3
     number_sections: true
     theme: united
+params:
+  name: default_filter
 ---
 
 ```{r include=FALSE,cache=TRUE}
@@ -44,7 +46,7 @@ data=read.delim("kgPathDictFile.tab",header = F,row.names = 1)
 names(data)=c("path")
 
 readStat=function(path){
-  statFile=paste(path,"default_filter/stat_raw.txt",sep='/')
+  statFile=paste(path,params$name,"/stat_raw.txt",sep='/')
   if (file.exists(statFile)){
     tmp=read.delim(statFile,header=T,as.is=T)
     tmp$gene_id=gsub("^.*/","",gsub("/$","",path))
@@ -207,7 +209,7 @@ Here are the results of filtering process for the entire alignment
 ```{r get_discard,cache=TRUE}
 
 readDiscard=function(path){
-  discardFile=paste(path,"default_filter/discard.txt",sep='/')
+  discardFile=paste(path,params$name,"/discard.txt",sep='/')
   if (file.exists(discardFile)){
     discard = readr::read_file(discardFile)
     if (grepl('computed TCS score is 0',discard)){
@@ -243,7 +245,7 @@ knitr::kable(discard_summary)
 ```{r get_data_filter,cache=TRUE}
 
 readStatFilter=function(path){
-  statFile=paste(path,"default_filter/stat_filtered.txt",sep='/')
+  statFile=paste(path,params$name,"/stat_filtered.txt",sep='/')
   if (file.exists(statFile)){
     tmp=read.delim(statFile,header=T,as.is=T)
     if (dim(tmp)[1]==0){

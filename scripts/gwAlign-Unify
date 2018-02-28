@@ -43,6 +43,8 @@ mode:blast_search   Search in Trembl and sp the sequence from the
 mode:stat_filter    Use TCS score to filter MSA and to produce 
                     statistics on sequence qualities by species.
 -------------------------------------------------------------------
+mode:report         Build an html report with quality assesments 
+-------------------------------------------------------------------
 """
 ,epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.RawTextHelpFormatter)
 
@@ -74,7 +76,7 @@ default='10,3,256'""")
 
 parser.add_argument('-keep',action='store_true', help="[align/compute_TCS] Only files with missing target (subsequent errors)")
 
-parser.add_argument('-name', metavar='name' , required=False, help="""[stat_filter] sub-folder with fitered data 
+parser.add_argument('-name', metavar='name' , required=False, help="""[stat_filter/report] sub-folder with fitered data 
 (default='default_filter')""",default='default_filter')
 parser.add_argument('-host', metavar='IP' , required=False, help="""[annotate] mysql host for ucsc database 
 (default='10.0.0.200')""",default='10.0.0.200')
@@ -643,10 +645,23 @@ elif 'stat_filter' in modeList:
 						i+=1
 
 				import requests,json
+				from requests.exceptions import SSLError
+
 				requestURL = "https://www.ebi.ac.uk/proteins/api/features/"+subject_id+"?types=INIT_MET%2CDISULFID%2CCROSSLNK%2CACT_SITE%2CMETAL%2CBINDING"
-				r = requests.get(requestURL, headers={ "Accept" : "application/json"})
+				ssl_issue=True
+
+				while ssl_issue:
+					try:
+						r = requests.get(requestURL, headers={ "Accept" : "application/json"})
+						ssl_issue=False
+					except SSLError as e:
+						ssl_issue=True
+					except Exception as e:
+						ssl_issue=False
+						raise e
+
 				if not r.ok:
-					err="EBI API request failed for: "+in_gene_dir.rstrip('/').split('/')[-1]
+					err=" EBI API request failed for: "+in_gene_dir.rstrip('/').split('/')[-1]+"; please check the following url: "+requestURL
 					return({"out":msg,"err":err})
 				uniprot_dict=json.loads(r.text)
 				features = uniprot_dict["features"]
@@ -721,7 +736,7 @@ elif 'stat_filter' in modeList:
 				if float(conserved)/total<in_ratio:
 					msg="stat_filter DISCARD see : "+os.path.abspath(discard_path)
 					outFiles[discard_path]="MSA have been discarded because the ratio between conserved species (at least partially) and considered species specified in -focus argument is inferior to the specified ratio threshold : "+str(in_ratio)+"\n"
-			else:
+			if not discard_path in outFiles.keys() :
 				outFiles[out_stat]=""
 				outFiles[out_stat_filtered]=""
 				outFiles[out_filtered]=""
@@ -937,6 +952,7 @@ elif 'stat_filter' in modeList:
 					os.makedirs(job_work_dir)
 
 					for file_path in outjob["outFiles"].keys():
+						if args.v : out_logger(" stat_filter - manager - writing "+file_path)
 						with open(file_path,"w") as con:
 							con.write(outjob["outFiles"][file_path])
 
@@ -958,7 +974,7 @@ elif 'report' in modeList:
 	copyfile(rmdFile, rootedDir.reports+"/report.rmd")
 	if os.path.isfile(rootedDir.reports+"/report.html"):
 		os.remove(rootedDir.reports+"/report.html")
-	submit('Rscript -e "rmarkdown::render(\''+rootedDir.reports+"/report.rmd"+'\')"')
+	submit('Rscript -e "rmarkdown::render(\''+rootedDir.reports+"/report.rmd"+'\',params = list(name = \''+args.name+'\') )"')
 
 	
 ### Annotation
