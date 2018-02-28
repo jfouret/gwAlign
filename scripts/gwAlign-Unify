@@ -925,7 +925,7 @@ elif 'stat_filter' in modeList:
 		if war!="":
 			war="stat_filter: WARNING handled by job for :"+in_gene_dir.rstrip('/').split('/')[-1]+"\n"+war
 
-		return({"msg":msg,"outFiles":outFiles,"err":err,"dir":in_gene_dir+"/"+in_name,"war",war})
+		return({"msg":msg,"outFiles":outFiles,"err":err,"dir":in_gene_dir+"/"+in_name,"war":war})
 
 	from multiprocessing import Pool
 	
@@ -944,7 +944,7 @@ elif 'stat_filter' in modeList:
 				outjob=jobs[i].get(5)
 				if outjob["err"]=="":
 					if args.v : out_logger(outjob["msg"])
-					out_logger(outjob["war"])
+					if outjob["war"] !="" : out_logger(outjob["war"])
 					job_work_dir=outjob["dir"]
 
 					if os.path.isdir(job_work_dir):
