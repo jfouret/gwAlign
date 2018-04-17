@@ -3,7 +3,7 @@
 SHELL=bash
 repo=$(shell pwd)
 GITVERSION=$(shell git describe --tags | sed 's/^v//g')
-progs = gwAlign-Extend gwAlign-Unify bam2consensus.py alignCDS.py
+progs = gwAlign-Extend gwAlign-Unify gwAlign_hgnc bam2consensus.py alignCDS.py
 bins=$(addprefix bin/,$(progs))
 
 ### makefile core
@@ -24,6 +24,7 @@ bin :
 .PHONY : install
 install : 
 	ln -s ${repo}/bin/gwAlign-Extend ${BINPATH}
+	ln -s ${repo}/bin/gwAlign_hgnc ${BINPATH}
 	ln -s ${repo}/bin/gwAlign-Unify ${BINPATH}
 	ln -s ${repo}/bin/bam2consensus.py ${BINPATH}
 	ln -s ${repo}/bin/alignCDS.py ${BINPATH}
@@ -32,6 +33,7 @@ install :
 .PHONY : force_install
 force_install : $(bins)
 	ln -sf ${repo}/bin/gwAlign-Extend ${BINPATH}
+	ln -sf ${repo}/bin/gwAlign_hgnc ${BINPATH}
 	ln -sf ${repo}/bin/gwAlign-Unify ${BINPATH}
 	ln -sf ${repo}/bin/bam2consensus.py ${BINPATH}
 	ln -sf ${repo}/bin/alignCDS.py ${BINPATH}
@@ -39,6 +41,7 @@ force_install : $(bins)
 
 .PHONY : uninstall
 uninstall : 
+	rm ${BINPATH}/gwAlign_hgnc
 	rm ${BINPATH}/gwAlign-Extend
 	rm ${BINPATH}/gwAlign-Unify
 	rm ${BINPATH}/alignCDS.py
