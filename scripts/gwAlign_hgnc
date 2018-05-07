@@ -5,15 +5,12 @@ year=2017
 author='Julien FOURET'
 contact='julien@fouret.me'
 
-parser = argparse.ArgumentParser(description='Use gwAlign blast results to convert kgIDs to uniprot id or HGNC gene symbol',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description='Use gwAlign blast results to convert kgIDs to uniprot id an then download gene names',epilog="Version : "+str(version)+"\n"+str(year)+"\nAuthor : "+author+" for more informations or enquiries please contact "+contact,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('-dict', metavar='/path/kgPathDictFile.tab', required=True, help="path of kgPathDictFile.tab")
 parser.add_argument('-name', metavar='name', required=True, help="name of subfolder to pick for filtered data")
 parser.add_argument('-input', metavar='/path', required=False, help="input list, default in stdin",default='-')
 parser.add_argument('-out', metavar='/path', required=False, help="output list without header",default='-')
-parser.add_argument('-no_uniprot', action="store_true",help="do not ouput uniprot id")
-parser.add_argument('-hgnc', action="store_true",  help="output hgnc symbol (after uniprot ID or alone)")
-parser.add_argument('-method', choices=["uniprot_hgnc","hgnc_only","uniprot_only"],default='uniprot_only',required=False,help="method to recover gene_symbol uniprot_only has the best rate")
 
 args=parser.parse_args()
 
@@ -39,112 +36,47 @@ if args.input=='-':
 else:
 	inputFile=open(args.input)
 
-def rest_symbol_hgnc(field,query):
-	headers = {
-	 'Accept': 'application/json',
+
+def get_symbol(uniprot_id):
+	symbol={
+		"primary":"",
+		"secondaries":"",
 	}
+	if uniprot_id!="None":
+		target_url="https://www.uniprot.org/uniprot/?query="+uniprot_id.split('-')[0]+"&format=tab&compress=no&columns=id,genes"
+		data = urllib2.urlopen(target_url)
+		for line in data:
+			m=re.match(uniprot_id.split('-')[0]+'\s+(\S+)\s?(.*)',line)
+			if m:
+				symbol={
+					"primary":m.group(1),
+					"secondaries":m.group(2),
+				}
+				break
+	return(symbol)
 
-	uri = 'https://rest.genenames.org'
-	path = '/fetch/'+field+'/'+query
 
-	target = urlparse(uri+path)
-	method = 'GET'
-	body = ''
-
-	h = http.Http()
-
-	response, content = h.request(
-	 target.geturl(),
-	 method,
-	 body,
-	 headers)
-
-	if response['status'] == '200':
-		data = json.loads(content)
+def get_annot(uniprot_id,kgID):
+	try_again=True
+	count_try=0
+	while (try_again):
 		try:
-			symbol=data['response']['docs'][0]['symbol']
-		except:
-			symbol='-'
-	else:
-		symbol='-'
-	return(symbol)
-
-def get_symbol(uniprot_id,met=args.method):
-	if uniprot_id=="None":
-			symbol='-'
-	else:
-		if met=="hgnc_only":
-			symbol=rest_symbol_hgnc("uniprot_ids",uniprot_id.split('-')[0])
-		elif met=="uniprot_only":
-			target_url="https://www.uniprot.org/uniprot/?query="+uniprot_id.split('-')[0]+"&format=tab&compress=no&columns=id,genes"
-			data = urllib2.urlopen(target_url) # it's a file like object and works just like a file
-			symbol='-'
-			for line in data:
-				m=re.match(uniprot_id.split('-')[0]+'\s+(\S+).*',line)
-				if m:
-					symbol=m.group(1)
-					break
-		elif met=="uniprot_hgnc":
-			target_url="https://www.uniprot.org/uniprot/?query="+uniprot_id.split('-')[0]+"&format=tab&compress=no&columns=id,database(hgnc)"
-			data = urllib2.urlopen(target_url) # it's a file like object and works just like a file
-			symbol='-'
-			for line in data:
-				m=re.match(uniprot_id.split('-')[0]+'\s+(\S+).*',line)
-				if m:
-					symbol=rest_symbol_hgnc('hgnc_id',m.group(1))
-					break
-	return(symbol)
-
-
-
-def get_annot(uniprot_id,kgPathDict=kgPathDict,no_uniprot=args.no_uniprot,hgnc=args.hgnc):
-	if hgnc :
-		symbol=get_symbol(uniprot_id)
-		if no_uniprot:
-			return(symbol)
-		else:
-			return(uniprot_id+"\t"+symbol)
-	else:
-		return(uniprot_id)
+			symbol=get_symbol(uniprot_id)
+			try_again=False
+		except urllib2.HTTPError as e:
+			count_try+=1
+			try_again=count_try<10
+	return([kgID,uniprot_id,symbol["primary"],symbol["secondaries"]])
 
 cpu=12
 from multiprocessing import Pool
 pool=Pool(processes=cpu)
 jobs=[]
 
-while len(jobs)!=0:
-		for i in range(0,min(cpu+1,len(jobs))):
-			if jobs[i].ready():
-				outjob=jobs[i].get(5)
-				if outjob["err"]=="":
-					if args.v : out_logger(outjob["msg"])
-					if outjob["war"] !="" : out_logger(outjob["war"])
-					job_work_dir=outjob["dir"]
-
-					if os.path.isdir(job_work_dir):
-						import shutil
-						shutil.rmtree(job_work_dir)
-
-					if args.v :  out_logger(" stat_filter - manager - creating folder "+job_work_dir)
-
-					os.makedirs(job_work_dir)
-
-					for file_path in outjob["outFiles"].keys():
-						if args.v : out_logger(" stat_filter - manager - writing "+file_path)
-						with open(file_path,"w") as con:
-							con.write(outjob["outFiles"][file_path])
-
-				else:
-					err_logger(outjob["err"])
-					#sys.exit(1)
-				del jobs[i]
-				if args.v : out_logger("stat_filter -- "+str(len(jobs))+" jobs left")
-				break
-
 for kg_id in inputFile.readlines():
 	kg_id=kg_id.rstrip()
 	with open(kgPathDict[kg_id]+"/"+args.name+"/blast.txt") as b_file:
-		jobs.append(pool.apply_async(get_annot,args=(b_file.readline().rstrip().split("\t")[0],)))
+		jobs.append(pool.apply_async(get_annot,args=(b_file.readline().rstrip().split("\t")[0],kg_id)))
 
 inputFile.close()
 pool.close()
@@ -157,7 +89,7 @@ else:
 while len(jobs)!=0:
 	for i in range(0,min(cpu+1,len(jobs))):
 		if jobs[i].ready():
-			outFile.write(jobs[i].get(5)+"\n")
+			outFile.write("\t".join(jobs[i].get(5))+"\n")
 			del jobs[i]
 			break
 pool.join()	
@@ -165,4 +97,8 @@ pool.join()
 outFile.close()
 
 sys.exit()
+
+
+
+
 

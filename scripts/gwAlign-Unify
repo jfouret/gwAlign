@@ -873,26 +873,18 @@ elif 'stat_filter' in modeList:
 						gap=''.join(conserved_dict[species]).count("-")
 						outFiles[out_stat_filtered]+="\t".join([species,str(N),str(gap),str(fs)])+filtered_feat_line+"\n"
 				msg="stat_filter FINISHED for :"+in_gene_dir.rstrip('/').split('/')[-1]
-				newInterval=True
-				start=0
+				start=conservedArray[0]
 				line="# Conserved codons (in codon/amino acid index) with aligned sequence as reference (counting gaps)"
 				outFiles[out_conserved_bed]=""
-				for i in conservedArray:
-					if newInterval:
-						outFiles[out_conserved_bed]+=line+"\n"
-						old_i=i
-						newInterval=False
-					else:
-						if i-1!=old_i:
-							newInterval=True
+				old_i=start
+				for i in conservedArray[1:]:
+					if i-1!=old_i:
 							line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+							outFiles[out_conserved_bed]+=line+"\n"
 							start=i
-						else:
-							old_i=i
-				if not newInterval:
-					line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
+					old_i=i
+				line=in_ref+"\t"+str(start)+"\t"+str(old_i+1) # 0-based IN OUT
 				outFiles[out_conserved_bed]+=line+"\n"
-
 				i=0
 				line="# exons (in nucleotid index) with unaligned sequence as reference (not counting gaps)"
 				newInterval=True
